@@ -29,7 +29,7 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 			return
 		}
 
-		if err := encoding.Respond(w, r, f, http.StatusCreated); err != nil {
+		if err := encoding.Respond(w, r, f, http.StatusOK); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
