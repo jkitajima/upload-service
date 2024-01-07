@@ -51,7 +51,7 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 		defer cancel()
 
 		blobstgChan := uploadToBlobStorage(ctx, uploadedFile, "company")
-		dbChan := insertIntoDB(ctx, s, f)
+		dbChan := insertIntoDB(ctx, s, &f)
 
 	RangeChannels:
 		for i := 0; i < 2; i++ {
@@ -201,11 +201,11 @@ func uploadToBlobStorage(ctx context.Context, uploadedFile *multipart.FileHeader
 	return errChan
 }
 
-func db(ctx context.Context, s *fileServer, f file.File) <-chan error {
+func db(ctx context.Context, s *fileServer, f *file.File) <-chan error {
 	errChan := make(chan error)
 
 	go func() {
-		if err := file.Create(ctx, s.db, &f); err != nil {
+		if err := file.Create(ctx, s.db, f); err != nil {
 			errChan <- err
 			return
 		}
@@ -216,7 +216,7 @@ func db(ctx context.Context, s *fileServer, f file.File) <-chan error {
 	return errChan
 }
 
-func insertIntoDB(ctx context.Context, s *fileServer, f file.File) <-chan error {
+func insertIntoDB(ctx context.Context, s *fileServer, f *file.File) <-chan error {
 	errChan := make(chan error)
 
 	go func() {
