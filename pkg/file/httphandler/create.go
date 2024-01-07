@@ -1,6 +1,7 @@
 package httphandler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -46,56 +47,28 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 
 		// insert into db and blob stg
 		ctx := r.Context()
-		errChan := make(chan error)
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
 
-		go func() {
-			openedFile, err := uploadedFile.Open()
-			if err != nil {
-				errChan <- err
-				return
+		blobstgChan := uploadToBlobStorage(ctx, uploadedFile, "company")
+		dbChan := insertIntoDB(ctx, s, f)
+
+	RangeChannels:
+		for i := 0; i < 2; i++ {
+			select {
+			case err := <-blobstgChan:
+				if err != nil {
+					cancel()
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					break RangeChannels
+				}
+			case err := <-dbChan:
+				if err != nil {
+					cancel()
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					break RangeChannels
+				}
 			}
-			defer openedFile.Close()
-
-			buf := make([]byte, uploadedFile.Size)
-			_, err = openedFile.Read(buf)
-			if err != nil {
-				errChan <- err
-				return
-			}
-
-			var opts blobOpts.WriterOptions
-			header := uploadedFile.Header
-			contentType := header.Get("Content-Type")
-			if contentType != "" {
-				opts.ContentType = contentType
-			}
-
-			err = blob.Upload(ctx, "company", uploadedFile.Filename, buf, &opts)
-			if err != nil {
-				errChan <- err
-				return
-			}
-
-			errChan <- nil
-		}()
-
-		go func() {
-			if err := file.Create(ctx, s.db, &f); err != nil {
-				errChan <- err
-				return
-			}
-
-			errChan <- nil
-		}()
-
-		// check for blob stg and db err
-		if err := <-errChan; err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if err := <-errChan; err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
 		}
 
 		if err := encoding.Respond(w, r, &f, http.StatusCreated); err != nil {
@@ -172,4 +145,90 @@ func validateFormValues(r *http.Request, f *file.File) error {
 	}
 
 	return nil
+}
+
+func blobstg(ctx context.Context, uploadedFile *multipart.FileHeader, bucket string) <-chan error {
+	errChan := make(chan error)
+
+	go func() {
+		openedFile, err := uploadedFile.Open()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		defer openedFile.Close()
+
+		buf := make([]byte, uploadedFile.Size)
+		_, err = openedFile.Read(buf)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		var opts blobOpts.WriterOptions
+		header := uploadedFile.Header
+		contentType := header.Get("Content-Type")
+		if contentType != "" {
+			opts.ContentType = contentType
+		}
+
+		err = blob.Upload(ctx, bucket, uploadedFile.Filename, buf, &opts)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		errChan <- nil
+	}()
+
+	return errChan
+}
+
+func uploadToBlobStorage(ctx context.Context, uploadedFile *multipart.FileHeader, bucket string) <-chan error {
+	errChan := make(chan error)
+
+	go func() {
+		blobstgChan := blobstg(ctx, uploadedFile, bucket)
+
+		select {
+		case <-ctx.Done():
+			errChan <- ctx.Err()
+		case err := <-blobstgChan:
+			errChan <- err
+		}
+	}()
+
+	return errChan
+}
+
+func db(ctx context.Context, s *fileServer, f file.File) <-chan error {
+	errChan := make(chan error)
+
+	go func() {
+		if err := file.Create(ctx, s.db, &f); err != nil {
+			errChan <- err
+			return
+		}
+
+		errChan <- nil
+	}()
+
+	return errChan
+}
+
+func insertIntoDB(ctx context.Context, s *fileServer, f file.File) <-chan error {
+	errChan := make(chan error)
+
+	go func() {
+		dbChan := db(ctx, s, f)
+
+		select {
+		case <-ctx.Done():
+			errChan <- ctx.Err()
+		case err := <-dbChan:
+			errChan <- err
+		}
+	}()
+
+	return errChan
 }
