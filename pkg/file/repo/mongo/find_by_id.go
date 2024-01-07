@@ -21,7 +21,12 @@ func (db *FileCollection) FindByID(ctx context.Context, id uuid.UUID) (*file.Fil
 		Data:    []byte(id[:]),
 	}
 
-	err := db.FindOne(
+	_, err := db.UpdateByID(ctx, binID, bson.D{{Key: "$inc", Value: bson.D{{Key: "timesRequested", Value: 1}}}})
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.FindOne(
 		ctx, bson.D{{
 			Key:   "_id",
 			Value: binID,

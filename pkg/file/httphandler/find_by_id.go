@@ -1,7 +1,6 @@
 package httphandler
 
 import (
-	"log"
 	"net/http"
 
 	"upload/pkg/file"
@@ -17,15 +16,13 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 
 		uuid, err := uuid.Parse(id)
 		if err != nil {
-			log.Println("failed to parse uuid")
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "failed to parse uuid", http.StatusInternalServerError)
 			return
 		}
 
 		f, err := file.FindByID(r.Context(), s.db, uuid)
 		if err != nil {
-			log.Println("could not find any file with provided id")
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "could not find any file with provided id", http.StatusInternalServerError)
 			return
 		}
 
