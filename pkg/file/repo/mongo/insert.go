@@ -15,6 +15,10 @@ import (
 func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
 	f.ID = uuid.New()
 
+	now := time.Now()
+	f.UpdatedAt = now
+	f.UploadedAt = now
+
 	binID := primitive.Binary{
 		Subtype: bson.TypeBinaryUUID,
 		Data:    []byte(f.ID[:]),

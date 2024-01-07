@@ -2,10 +2,17 @@ package httphandler
 
 import (
 	"context"
+	"os"
+	"time"
+
+	"encoding/hex"
+
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 
 	"upload/pkg/file"
 	"upload/util/blob"
@@ -16,6 +23,7 @@ import (
 
 func (s *fileServer) handleFileCreate() http.HandlerFunc {
 	const maxPermittedRequestSize = 4 << 20
+	var now = time.Now()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// validate max request size
@@ -45,12 +53,28 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 			return
 		}
 
+		// generate random name for file storage
+		f.Name, err = generateRandomFileName(uploadedFile.Filename)
+		if err != nil {
+			http.Error(w, "error while sanitizing file name", http.StatusInternalServerError)
+			return
+		}
+		uploadedFile.Filename = f.Name
+
+		// server-side file attributes
+		const blobstgContainer = "company"
+		f.Extension = filepath.Ext(f.Name)
+		f.ContentType = uploadedFile.Header.Get("Content-Type")
+		f.Size = uint(uploadedFile.Size)
+		f.SubmittedAt = now
+		f.StorageLocation = fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", os.Getenv("AZURE_STORAGE_ACCOUNT"), blobstgContainer, f.Name)
+
 		// insert into db and blob stg
 		ctx := r.Context()
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		blobstgChan := uploadToBlobStorage(ctx, uploadedFile, "company")
+		blobstgChan := uploadToBlobStorage(ctx, uploadedFile, blobstgContainer)
 		dbChan := insertIntoDB(ctx, s, &f)
 
 	RangeChannels:
@@ -126,7 +150,7 @@ func validateFormValues(r *http.Request, f *file.File) error {
 			if len(v) > 1 {
 				return errors.New(`must have only one "name" form field`)
 			}
-			f.Name = v[0]
+			f.Title = v[0]
 			requiredFields[k] = true
 			fieldsCounter--
 		}
@@ -231,4 +255,16 @@ func insertIntoDB(ctx context.Context, s *fileServer, f *file.File) <-chan error
 	}()
 
 	return errChan
+}
+
+func generateRandomFileName(name string) (string, error) {
+	bytes := make([]byte, 4)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+
+	ext := filepath.Ext(name)
+	randomFileName := hex.EncodeToString(bytes) + ext
+	return randomFileName, nil
 }
