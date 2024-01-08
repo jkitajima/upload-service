@@ -6,14 +6,11 @@ import (
 
 	"upload/pkg/file"
 
-	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
-	f.ID = uuid.New()
-
 	now := time.Now()
 	f.UpdatedAt = now
 	f.UploadedAt = now
@@ -33,7 +30,6 @@ func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
 		Size            uint             `bson:"size"`
 		StorageLocation string           `bson:"storageLocation"`
 		TimesRequested  uint             `bson:"timesRequested"`
-		Title           string           `bson:"title"`
 		Description     string           `bson:"description"`
 		SubmittedAt     time.Time        `bson:"submittedAt"`
 		UpdatedAt       time.Time        `bson:"updatedAt"`
@@ -48,7 +44,6 @@ func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
 		f.Size,
 		f.StorageLocation,
 		f.TimesRequested,
-		f.Title,
 		f.Description,
 		f.SubmittedAt,
 		f.UpdatedAt,

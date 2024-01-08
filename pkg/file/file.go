@@ -16,7 +16,6 @@ type File struct {
 	Size            uint      `json:"size"`
 	StorageLocation string    `json:"storageLocation"`
 	TimesRequested  uint      `json:"timesRequested"`
-	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	SubmittedAt     time.Time `json:"submittedAt"`
 	UpdatedAt       time.Time `json:"updatedAt"`

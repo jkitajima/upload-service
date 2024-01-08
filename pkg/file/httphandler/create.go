@@ -2,22 +2,19 @@ package httphandler
 
 import (
 	"context"
-	"os"
-	"time"
-
-	"encoding/hex"
-
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
+	"time"
 
 	"upload/pkg/file"
 	"upload/util/blob"
 	"upload/util/encoding"
 
+	"github.com/google/uuid"
 	blobOpts "gocloud.dev/blob"
 )
 
@@ -53,21 +50,17 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 			return
 		}
 
-		// generate random name for file storage
-		f.Name, err = generateRandomFileName(uploadedFile.Filename)
-		if err != nil {
-			http.Error(w, "error while sanitizing file name", http.StatusInternalServerError)
-			return
-		}
-		uploadedFile.Filename = f.Name
-
 		// server-side file attributes
+		f.ID = uuid.New()
+		f.Name = uploadedFile.Filename
+		f.Extension = filepath.Ext(uploadedFile.Filename)
+
 		const blobstgContainer = "company"
-		f.Extension = filepath.Ext(f.Name)
 		f.ContentType = uploadedFile.Header.Get("Content-Type")
 		f.Size = uint(uploadedFile.Size)
 		f.SubmittedAt = now
-		f.StorageLocation = fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", os.Getenv("AZURE_STORAGE_ACCOUNT"), blobstgContainer, f.Name)
+		f.StorageLocation = fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", os.Getenv("AZURE_STORAGE_ACCOUNT"), blobstgContainer, f.ID.String())
+		uploadedFile.Filename = f.ID.String()
 
 		// insert into db and blob stg
 		ctx := r.Context()
@@ -126,7 +119,6 @@ func validateFormValues(r *http.Request, f *file.File) error {
 	var requiredFields = map[string]bool{
 		"uploaderId": false,
 		"companyId":  false,
-		"name":       false,
 	}
 	var fieldsCounter int = len(requiredFields)
 
@@ -144,13 +136,6 @@ func validateFormValues(r *http.Request, f *file.File) error {
 				return errors.New(`must have only one "companyId" form field`)
 			}
 			f.CompanyID = v[0]
-			requiredFields[k] = true
-			fieldsCounter--
-		case "name":
-			if len(v) > 1 {
-				return errors.New(`must have only one "name" form field`)
-			}
-			f.Title = v[0]
 			requiredFields[k] = true
 			fieldsCounter--
 		case "description":
@@ -260,16 +245,4 @@ func insertIntoDB(ctx context.Context, s *fileServer, f *file.File) <-chan error
 	}()
 
 	return errChan
-}
-
-func generateRandomFileName(name string) (string, error) {
-	bytes := make([]byte, 4)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
-	}
-
-	ext := filepath.Ext(name)
-	randomFileName := hex.EncodeToString(bytes) + ext
-	return randomFileName, nil
 }
