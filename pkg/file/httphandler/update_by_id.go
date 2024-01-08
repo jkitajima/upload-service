@@ -1,7 +1,6 @@
 package httphandler
 
 import (
-	"log"
 	"net/http"
 	"upload/pkg/file"
 	"upload/util/encoding"
@@ -15,7 +14,7 @@ func (s *fileServer) handleFileUpdate() http.HandlerFunc {
 		var f file.File
 
 		if err := encoding.Decode(w, r, &f); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "failed to decode client input", http.StatusInternalServerError)
 			return
 		}
 
@@ -23,19 +22,17 @@ func (s *fileServer) handleFileUpdate() http.HandlerFunc {
 		uuid, err := uuid.Parse(id)
 		f.ID = uuid
 		if err != nil {
-			log.Println("failed to parse uuid")
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "failed to parse uuid", http.StatusInternalServerError)
 			return
 		}
 
 		if err := file.Update(r.Context(), s.db, uuid, &f); err != nil {
-			log.Println("failed to update requested file")
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "failed to update requested file", http.StatusInternalServerError)
 			return
 		}
 
-		if err := encoding.Respond(w, r, f, http.StatusCreated); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+		if err := encoding.Respond(w, r, f, http.StatusOK); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
