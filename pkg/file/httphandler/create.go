@@ -153,6 +153,11 @@ func validateFormValues(r *http.Request, f *file.File) error {
 			f.Title = v[0]
 			requiredFields[k] = true
 			fieldsCounter--
+		case "description":
+			if len(v) > 1 {
+				return errors.New(`must have only one "description" form field`)
+			}
+			f.Description = v[0]
 		}
 	}
 
