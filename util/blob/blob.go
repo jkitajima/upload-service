@@ -33,3 +33,17 @@ func Upload(ctx context.Context, bucket, item string, data []byte, opts *blob.Wr
 
 	return nil
 }
+
+func Delete(ctx context.Context, bucket, item string) error {
+	buck, err := blob.OpenBucket(ctx, scheme+bucket)
+	if err != nil {
+		return err
+	}
+	defer buck.Close()
+
+	if err := buck.Delete(ctx, item); err != nil {
+		return err
+	}
+
+	return nil
+}
