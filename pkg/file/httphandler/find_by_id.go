@@ -28,6 +28,18 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 			return
 		}
 
+		params := r.URL.Query()
+		if len(params) > 0 {
+			switch params.Get("redirect") {
+			case "storageLocation":
+				http.Redirect(w, r, f.StorageLocation, http.StatusSeeOther)
+			default:
+				resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Query Parameter", "Value of `redirect` parameter must be a valid file attribute: [`storageLocation`]."})
+				encoding.Respond(w, r, resp, http.StatusBadRequest)
+				return
+			}
+		}
+
 		resp := DataResponse{f}
 		if err := encoding.Respond(w, r, resp, http.StatusOK); err != nil {
 			resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})

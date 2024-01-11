@@ -11,7 +11,7 @@ type ErrorsResponse struct {
 }
 
 type ErrorObject struct {
-	Code        uint16 `json:"code"`
+	Status      uint16 `json:"status"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 }
