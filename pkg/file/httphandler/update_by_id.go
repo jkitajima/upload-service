@@ -14,7 +14,8 @@ func (s *fileServer) handleFileUpdate() http.HandlerFunc {
 		var f file.File
 
 		if err := encoding.Decode(w, r, &f); err != nil {
-			http.Error(w, "failed to decode client input", http.StatusInternalServerError)
+			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Input", "Failed to decode client input."})
+			encoding.Respond(w, r, resp, http.StatusBadRequest)
 			return
 		}
 
@@ -22,16 +23,19 @@ func (s *fileServer) handleFileUpdate() http.HandlerFunc {
 		uuid, err := uuid.Parse(id)
 		f.ID = uuid
 		if err != nil {
-			http.Error(w, "failed to parse uuid", http.StatusInternalServerError)
+			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Input", "Failed to parse UUID."})
+			encoding.Respond(w, r, resp, http.StatusBadRequest)
 			return
 		}
 
 		if err := file.Update(r.Context(), s.db, uuid, &f); err != nil {
-			http.Error(w, "failed to update requested file", http.StatusInternalServerError)
+			resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
+			encoding.Respond(w, r, resp, http.StatusInternalServerError)
 			return
 		}
 
-		if err := encoding.Respond(w, r, f, http.StatusOK); err != nil {
+		resp := DataResponse{&f}
+		if err := encoding.Respond(w, r, resp, http.StatusOK); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
