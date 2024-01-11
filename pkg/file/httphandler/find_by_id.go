@@ -23,13 +23,15 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 
 		f, err := file.FindByID(r.Context(), s.db, uuid)
 		if err != nil {
-			http.Error(w, "could not find any file with provided id", http.StatusInternalServerError)
+			resp := NewErrorsResponse(&ErrorObject{http.StatusNotFound, "Targeted Resource Not Found", "Could not find any file with provided id."})
+			encoding.Respond(w, r, resp, http.StatusNotFound)
 			return
 		}
 
 		resp := DataResponse{f}
 		if err := encoding.Respond(w, r, resp, http.StatusOK); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
+			encoding.Respond(w, r, resp, http.StatusInternalServerError)
 			return
 		}
 	}
