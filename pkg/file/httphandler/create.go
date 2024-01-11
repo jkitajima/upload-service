@@ -93,7 +93,8 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 			}
 		}
 
-		if err := encoding.Respond(w, r, &f, http.StatusCreated); err != nil {
+		resp := DataResponse{&f}
+		if err := encoding.Respond(w, r, resp, http.StatusCreated); err != nil {
 			resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
 			encoding.Respond(w, r, resp, http.StatusInternalServerError)
 			return
