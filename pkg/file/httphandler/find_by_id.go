@@ -16,7 +16,8 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 
 		uuid, err := uuid.Parse(id)
 		if err != nil {
-			http.Error(w, "failed to parse uuid", http.StatusInternalServerError)
+			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Path Parameter", "File ID is in a invalid format."})
+			encoding.Respond(w, r, resp, http.StatusBadRequest)
 			return
 		}
 
@@ -26,7 +27,8 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 			return
 		}
 
-		if err := encoding.Respond(w, r, f, http.StatusOK); err != nil {
+		resp := DataResponse{f}
+		if err := encoding.Respond(w, r, resp, http.StatusOK); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
