@@ -16,8 +16,7 @@ func (s *fileServer) handleFileDelete() http.HandlerFunc {
 		id := chi.URLParam(r, "fileID")
 		uuid, err := uuid.Parse(id)
 		if err != nil {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Input", "Failed to parse UUID."})
-			encoding.Respond(w, r, resp, http.StatusBadRequest)
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
 			return
 		}
 
@@ -25,16 +24,14 @@ func (s *fileServer) handleFileDelete() http.HandlerFunc {
 		defer cancel()
 
 		errChan := make(chan error)
-		go func() { errChan <- file.Delete(ctx, s.db, uuid) }()
+		go func() { errChan <- file.DeleteByID(ctx, s.db, uuid) }()
 		go func() { errChan <- blob.Delete(ctx, "company", uuid.String()) }()
 		if err := <-errChan; err != nil {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
-			encoding.Respond(w, r, resp, http.StatusInternalServerError)
+			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 			return
 		}
 		if err := <-errChan; err != nil {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
-			encoding.Respond(w, r, resp, http.StatusInternalServerError)
+			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 			return
 		}
 

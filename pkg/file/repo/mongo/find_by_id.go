@@ -2,12 +2,14 @@ package mongo
 
 import (
 	"context"
+	"log"
 
 	"upload/pkg/file"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (db *FileCollection) FindByID(ctx context.Context, id uuid.UUID) (*file.File, error) {
@@ -20,12 +22,12 @@ func (db *FileCollection) FindByID(ctx context.Context, id uuid.UUID) (*file.Fil
 	}
 
 	incChan := make(chan error)
-	findChan := make(chan error)
 	go func() {
-		_, err := db.UpdateByID(ctx, binID, bson.D{{Key: "$inc", Value: bson.D{{Key: "timesRequested", Value: 1}}}})
+		_, err := db.Collection.UpdateByID(ctx, binID, bson.D{{Key: "$inc", Value: bson.D{{Key: "timesRequested", Value: 1}}}})
 		incChan <- err
 	}()
 
+	findChan := make(chan error)
 	go func() {
 		findChan <- db.FindOne(
 			ctx, bson.D{{
@@ -38,24 +40,38 @@ func (db *FileCollection) FindByID(ctx context.Context, id uuid.UUID) (*file.Fil
 	select {
 	case err := <-incChan:
 		if err != nil {
-			return nil, err
+			log.Println(err)
+			return nil, file.ErrInternal
 		}
 	case err := <-findChan:
 		if err != nil {
-			return nil, err
+			log.Println(err)
+
+			if err == mongo.ErrNoDocuments {
+				return nil, file.ErrFileNotFoundByID
+			}
+
+			return nil, file.ErrInternal
 		}
 	}
 
 	select {
 	case err := <-incChan:
 		if err != nil {
-			return nil, err
+			log.Println(err)
+			return nil, file.ErrInternal
 		}
 
 		f.TimesRequested++
 	case err := <-findChan:
 		if err != nil {
-			return nil, err
+			log.Println(err)
+
+			if err == mongo.ErrNoDocuments {
+				return nil, file.ErrFileNotFoundByID
+			}
+
+			return nil, file.ErrInternal
 		}
 	}
 

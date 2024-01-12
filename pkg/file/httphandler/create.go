@@ -19,38 +19,34 @@ import (
 )
 
 func (s *fileServer) handleFileCreate() http.HandlerFunc {
-	const maxPermittedRequestSize = 4 << 20
+	const maxPermittedRequestSize = 4 << 20 // 4 MiB
 	var now = time.Now()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// validate max request size
 		requestSize := r.ContentLength
 		if requestSize > maxPermittedRequestSize {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Request Payload Too Big", fmt.Sprintf("Maximum permitted request size is `%d` bytes.", maxPermittedRequestSize)})
-			encoding.Respond(w, r, resp, http.StatusBadRequest)
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, fmt.Errorf("maximum permitted request size is %d bytes", maxPermittedRequestSize))
 			return
 		}
 
 		// validate if request is "multipart/form-data"
 		if err := r.ParseMultipartForm(maxPermittedRequestSize); err != nil {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Multipart Form", "Failed to parse multipart/form-data input."})
-			encoding.Respond(w, r, resp, http.StatusBadRequest)
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, errors.New("failed to parse multipart/form-data input"))
 			return
 		}
 
 		// validate and fetch uploaded file
 		uploadedFile, err := fetchFormFile(r)
 		if err != nil {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Multipart Form", err.Error()})
-			encoding.Respond(w, r, resp, http.StatusBadRequest)
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
 			return
 		}
 
 		// validate form field values and build a File struct
 		var f file.File
 		if err := validateFormValues(r, &f); err != nil {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusBadRequest, "Invalid Multipart Form", err.Error()})
-			encoding.Respond(w, r, resp, http.StatusBadRequest)
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
 			return
 		}
 
@@ -79,15 +75,13 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 			case err := <-blobstgChan:
 				if err != nil {
 					cancel()
-					resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
-					encoding.Respond(w, r, resp, http.StatusInternalServerError)
+					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 					return
 				}
 			case err := <-dbChan:
 				if err != nil {
 					cancel()
-					resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
-					encoding.Respond(w, r, resp, http.StatusInternalServerError)
+					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 					return
 				}
 			}
@@ -95,8 +89,7 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 
 		resp := DataResponse{&f}
 		if err := encoding.Respond(w, r, resp, http.StatusCreated); err != nil {
-			resp := NewErrorsResponse(&ErrorObject{http.StatusInternalServerError, "Internal Server Error", "Server encountered an unexpected condition that prevented it from fulfilling the request."})
-			encoding.Respond(w, r, resp, http.StatusInternalServerError)
+			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 			return
 		}
 	}
@@ -107,16 +100,16 @@ func fetchFormFile(r *http.Request) (*multipart.FileHeader, error) {
 	if filesUploaded == 0 {
 		return nil, errors.New("at least one form field should contain file input")
 	} else if filesUploaded > 1 {
-		return nil, errors.New("only one form field should contain file input")
+		return nil, errors.New("only one form field can contain file input")
 	}
 
 	fileForm, ok := r.MultipartForm.File["file"]
 	if !ok {
-		return nil, errors.New(`multipart must have a form field name "file"`)
+		return nil, errors.New(`multipart must have a form field named "file"`)
 	} else if len(fileForm) == 0 {
 		return nil, errors.New(`form field "file" must have a file input`)
 	} else if len(fileForm) > 1 {
-		return nil, errors.New(`form field "file" have only a single file input`)
+		return nil, errors.New(`form field "file" can have only a single file input`)
 	}
 
 	return fileForm[0], nil

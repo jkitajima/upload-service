@@ -18,3 +18,8 @@ func Respond(w http.ResponseWriter, r *http.Request, data any, status int) error
 
 	return nil
 }
+
+func ErrorRespond(w http.ResponseWriter, r *http.Request, status int, err error) {
+	resp := NewErrorResponse(status, http.StatusText(status), err.Error())
+	Respond(w, r, resp, status)
+}

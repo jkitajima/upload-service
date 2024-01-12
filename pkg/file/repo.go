@@ -9,6 +9,6 @@ import (
 type repo interface {
 	Insert(context.Context, *File) error
 	FindByID(context.Context, uuid.UUID) (*File, error)
-	Update(context.Context, uuid.UUID, *File) error
-	Delete(context.Context, uuid.UUID) error
+	UpdateByID(context.Context, uuid.UUID, *File) error
+	DeleteByID(context.Context, uuid.UUID) error
 }

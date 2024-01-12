@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"upload/pkg/file"
@@ -52,7 +53,8 @@ func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
 
 	_, err := db.InsertOne(ctx, doc)
 	if err != nil {
-		return err
+		log.Println(err)
+		return file.ErrInternal
 	}
 
 	return nil

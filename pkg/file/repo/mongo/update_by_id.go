@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"upload/pkg/file"
@@ -9,9 +10,10 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func (db *FileCollection) Update(ctx context.Context, id uuid.UUID, f *file.File) error {
+func (db *FileCollection) UpdateByID(ctx context.Context, id uuid.UUID, f *file.File) error {
 	binID := primitive.Binary{
 		Subtype: bson.TypeBinaryUUID,
 		Data:    []byte(id[:]),
@@ -26,7 +28,7 @@ func (db *FileCollection) Update(ctx context.Context, id uuid.UUID, f *file.File
 
 	updateChan := make(chan error)
 	go func() {
-		_, err := db.UpdateByID(ctx, binID, update)
+		_, err := db.Collection.UpdateByID(ctx, binID, update)
 		updateChan <- err
 	}()
 
@@ -43,18 +45,26 @@ func (db *FileCollection) Update(ctx context.Context, id uuid.UUID, f *file.File
 	select {
 	case err := <-updateChan:
 		if err != nil {
-			return err
+			log.Println(err)
+			return file.ErrInternal
 		}
 	case err := <-findChan:
 		if err != nil {
-			return err
+			log.Println(err)
+
+			if err == mongo.ErrNoDocuments {
+				return file.ErrFileNotFoundByID
+			}
+
+			return file.ErrInternal
 		}
 	}
 
 	select {
 	case err := <-updateChan:
 		if err != nil {
-			return err
+			log.Println(err)
+			return file.ErrInternal
 		}
 
 		if v, ok := c[uploaderID]; ok {
@@ -72,7 +82,13 @@ func (db *FileCollection) Update(ctx context.Context, id uuid.UUID, f *file.File
 		f.UpdatedAt = updatedAt
 	case err := <-findChan:
 		if err != nil {
-			return err
+			log.Println(err)
+
+			if err == mongo.ErrNoDocuments {
+				return file.ErrFileNotFoundByID
+			}
+
+			return file.ErrInternal
 		}
 	}
 
