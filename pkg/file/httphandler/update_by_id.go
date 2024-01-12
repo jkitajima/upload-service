@@ -10,13 +10,29 @@ import (
 )
 
 func (s *fileServer) handleFileUpdate() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var f file.File
+	type request struct {
+		UploaderID  string `json:"uploaderId" validate:"uuid"`
+		CompanyID   string `json:"companyId" validate:"uuid"`
+		Description string `json:"description"`
+	}
 
-		if err := encoding.Decode(w, r, &f); err != nil {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req request
+
+		if err := encoding.Decode(w, r, &req); err != nil {
 			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
 			return
 		}
+
+		if err := s.validator.Struct(req); err != nil {
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		var f file.File
+		f.UploaderID = req.UploaderID
+		f.CompanyID = req.CompanyID
+		f.Description = req.Description
 
 		id := chi.URLParam(r, "fileID")
 		uuid, err := uuid.Parse(id)
