@@ -2,6 +2,7 @@ package httphandler
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"upload/pkg/file"
 	"upload/util/blob"
@@ -23,16 +24,37 @@ func (s *fileServer) handleFileDelete() http.HandlerFunc {
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
 
-		errChan := make(chan error)
-		go func() { errChan <- file.DeleteByID(ctx, s.db, uuid) }()
-		go func() { errChan <- blob.Delete(ctx, "company", uuid.String()) }()
-		if err := <-errChan; err != nil {
-			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
-			return
-		}
-		if err := <-errChan; err != nil {
-			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
-			return
+		dbChan := make(chan error)
+		go func() { dbChan <- file.DeleteByID(ctx, s.db, uuid) }()
+
+		blobChan := make(chan error)
+		go func() { blobChan <- blob.Delete(ctx, "company", uuid.String()) }()
+
+		for i := 0; i < 2; i++ {
+			select {
+			case err := <-dbChan:
+				if err != nil {
+					log.Println(err)
+					cancel()
+					if err == file.ErrFileNotFoundByID {
+						encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
+						return
+					}
+					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
+					return
+				}
+			case err := <-blobChan:
+				if err != nil {
+					log.Println(err)
+					cancel()
+					if err == blob.ErrNotFound {
+						encoding.ErrorRespond(w, r, http.StatusBadRequest, file.ErrFileNotFoundByID)
+						return
+					}
+					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
+					return
+				}
+			}
 		}
 
 		w.WriteHeader(http.StatusNoContent)

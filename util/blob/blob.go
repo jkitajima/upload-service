@@ -2,9 +2,11 @@ package blob
 
 import (
 	"context"
+	"log"
 
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/azureblob"
+	"gocloud.dev/gcerrors"
 )
 
 const scheme = "azblob://"
@@ -12,23 +14,27 @@ const scheme = "azblob://"
 func Upload(ctx context.Context, bucket, item string, data []byte, opts *blob.WriterOptions) error {
 	buck, err := blob.OpenBucket(ctx, scheme+bucket)
 	if err != nil {
-		return err
+		log.Println(err)
+		return ErrInternal
 	}
 	defer buck.Close()
 
 	w, err := buck.NewWriter(ctx, item, opts)
 	if err != nil {
-		return err
+		log.Println(err)
+		return ErrInternal
 	}
 
 	_, writeErr := w.Write(data)
 	closeErr := w.Close()
 
 	if writeErr != nil {
-		return err
+		log.Println(err)
+		return ErrInternal
 	}
 	if closeErr != nil {
-		return err
+		log.Println(err)
+		return ErrInternal
 	}
 
 	return nil
@@ -37,12 +43,20 @@ func Upload(ctx context.Context, bucket, item string, data []byte, opts *blob.Wr
 func Delete(ctx context.Context, bucket, item string) error {
 	buck, err := blob.OpenBucket(ctx, scheme+bucket)
 	if err != nil {
-		return err
+		log.Println(err)
+		return ErrInternal
 	}
 	defer buck.Close()
 
 	if err := buck.Delete(ctx, item); err != nil {
-		return err
+		log.Println(err)
+
+		errcode := gcerrors.Code(err)
+		if errcode == gcerrors.NotFound {
+			return ErrNotFound
+		}
+
+		return ErrInternal
 	}
 
 	return nil
