@@ -9,7 +9,7 @@ import (
 	"os"
 
 	fileServer "upload/pkg/file/httphandler"
-	"upload/util/composer"
+	"upload/shared/composer"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -58,7 +58,7 @@ func exec() error {
 	}
 
 	srv := composer.NewComposer()
-	file := fileServer.NewServer(dbClient.Collection("files"))
+	file := fileServer.NewServer(dbClient.Collection("files"), "azblob://")
 	if err := srv.Compose(file); err != nil {
 		return err
 	}

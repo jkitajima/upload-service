@@ -1,16 +1,16 @@
 package file
 
-import (
-	"context"
+// import (
+// 	"context"
 
-	"github.com/google/uuid"
-)
+// 	"github.com/google/uuid"
+// )
 
-func FindByID(ctx context.Context, r repo, id uuid.UUID) (*File, error) {
-	f, err := r.FindByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
+// func FindByID(ctx context.Context, r repo, id uuid.UUID) (*File, error) {
+// 	f, err := r.FindByID(ctx, id)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return f, nil
-}
+// 	return f, nil
+// }

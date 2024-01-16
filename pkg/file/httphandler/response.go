@@ -1,9 +1,7 @@
 package httphandler
 
-import "upload/pkg/file"
-
 type DataResponse struct {
-	Data *file.File `json:"data"`
+	Data any `json:"data"`
 }
 
 type ErrorsResponse struct {

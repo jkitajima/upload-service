@@ -1,23 +1,48 @@
 package file
 
 import (
+	"context"
+	"errors"
 	"time"
+
+	"upload/shared/blob"
 
 	"github.com/google/uuid"
 )
 
 type File struct {
-	ID              uuid.UUID `json:"id"`
-	UploaderID      string    `json:"uploaderId"`
-	CompanyID       string    `json:"companyId"`
-	Name            string    `json:"name"`
-	Extension       string    `json:"extension"`
-	ContentType     string    `json:"contentType"`
-	Size            uint      `json:"size"`
-	StorageLocation string    `json:"storageLocation"`
-	TimesRequested  uint      `json:"timesRequested"`
-	Description     string    `json:"description"`
-	SubmittedAt     time.Time `json:"submittedAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
-	UploadedAt      time.Time `json:"uploadedAt"`
+	ID              uuid.UUID
+	UploaderID      string
+	CompanyID       string
+	Name            string
+	Extension       string
+	ContentType     string
+	Size            uint
+	StorageLocation string
+	TimesRequested  uint
+	Description     string
+	SubmittedAt     time.Time
+	UpdatedAt       time.Time
+	UploadedAt      time.Time
 }
+
+type Service struct {
+	Repo Repo
+	Blob blob.Storager
+}
+
+type Repo interface {
+	Insert(context.Context, *File) error
+	// FindByID(context.Context, uuid.UUID) (*File, error)
+	// UpdateByID(context.Context, uuid.UUID, *File) error
+	// DeleteByID(context.Context, uuid.UUID) error
+}
+
+var (
+	ErrInternal           = errors.New("the file service encountered an unexpected condition that prevented it from fulfilling the request")
+	ErrRepoReceivedSignal = errors.New("repository received a signal to abort the operation")
+	ErrNotFoundByID       = errors.New("could not find any file with provided ID")
+	ErrEmptyContentType   = errors.New("file Content-Type is empty")
+	ErrEmptyBucketName    = errors.New("provided bucket name is empty")
+	ErrInvalidUUID        = errors.New("provided file UUID is invalid")
+)

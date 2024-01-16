@@ -1,7 +1,6 @@
 package httphandler
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -11,14 +10,28 @@ import (
 	"time"
 
 	"upload/pkg/file"
-	"upload/util/blob"
-	"upload/util/encoding"
+	"upload/shared/encoding"
 
 	"github.com/google/uuid"
-	blobOpts "gocloud.dev/blob"
 )
 
 func (s *fileServer) handleFileCreate() http.HandlerFunc {
+	type response struct {
+		ID              uuid.UUID `json:"id"`
+		UploaderID      string    `json:"uploaderId"`
+		CompanyID       string    `json:"companyId"`
+		Name            string    `json:"name"`
+		Extension       string    `json:"extension"`
+		ContentType     string    `json:"contentType"`
+		Size            uint      `json:"size"`
+		StorageLocation string    `json:"storageLocation"`
+		TimesRequested  uint      `json:"timesRequested"`
+		Description     string    `json:"description"`
+		SubmittedAt     time.Time `json:"submittedAt"`
+		UpdatedAt       time.Time `json:"updatedAt"`
+		UploadedAt      time.Time `json:"uploadedAt"`
+	}
+
 	const maxPermittedRequestSize = 4 << 20 // 4 MiB
 	var now = time.Now()
 
@@ -50,7 +63,8 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 			return
 		}
 
-		// server-side file attributes
+		// now that input is validated
+		// add server-side file attributes
 		f.ID = uuid.New()
 		f.Name = uploadedFile.Filename
 		f.Extension = filepath.Ext(uploadedFile.Filename)
@@ -62,33 +76,45 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 		f.StorageLocation = fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", os.Getenv("AZURE_STORAGE_ACCOUNT"), blobstgContainer, f.ID.String())
 		uploadedFile.Filename = f.ID.String()
 
-		// insert into db and blob stg
-		ctx := r.Context()
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
+		// open file to be uploaded
+		openedFile, _ := uploadedFile.Open()
+		defer openedFile.Close()
 
-		blobstgChan := uploadToBlobStorage(ctx, uploadedFile, blobstgContainer)
-		dbChan := insertIntoDB(ctx, s, &f)
+		service := file.Service{Repo: s.db, Blob: s.blobstg}
+		serviceRequest := file.CreateRequest{
+			Metadata: &f,
+			Rawdata:  openedFile,
+			Bucket:   blobstgContainer,
+		}
 
-		for i := 0; i < 2; i++ {
-			select {
-			case err := <-blobstgChan:
-				if err != nil {
-					cancel()
-					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
-					return
-				}
-			case err := <-dbChan:
-				if err != nil {
-					cancel()
-					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
-					return
-				}
+		serviceResponse, err := service.Create(r.Context(), serviceRequest)
+		if err != nil {
+			switch err {
+			default:
+				encoding.ErrorRespond(w, r, http.StatusInternalServerError, err)
+				return
 			}
 		}
 
-		resp := DataResponse{&f}
-		if err := encoding.Respond(w, r, resp, http.StatusCreated); err != nil {
+		meta := serviceResponse.Metadata
+		resp := response{
+			ID:              meta.ID,
+			UploaderID:      meta.UploaderID,
+			CompanyID:       meta.CompanyID,
+			Name:            meta.Name,
+			Extension:       meta.Extension,
+			ContentType:     meta.ContentType,
+			Size:            meta.Size,
+			StorageLocation: meta.StorageLocation,
+			TimesRequested:  meta.TimesRequested,
+			Description:     meta.Description,
+			SubmittedAt:     meta.SubmittedAt,
+			UpdatedAt:       meta.UpdatedAt,
+			UploadedAt:      meta.UploadedAt,
+		}
+
+		dataresp := DataResponse{&resp}
+		if err := encoding.Respond(w, r, &dataresp, http.StatusCreated); err != nil {
 			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 			return
 		}
@@ -159,90 +185,4 @@ func validateFormValues(r *http.Request, f *file.File) error {
 	}
 
 	return nil
-}
-
-func blobstg(ctx context.Context, uploadedFile *multipart.FileHeader, bucket string) <-chan error {
-	errChan := make(chan error)
-
-	go func() {
-		openedFile, err := uploadedFile.Open()
-		if err != nil {
-			errChan <- err
-			return
-		}
-		defer openedFile.Close()
-
-		buf := make([]byte, uploadedFile.Size)
-		_, err = openedFile.Read(buf)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		var opts blobOpts.WriterOptions
-		header := uploadedFile.Header
-		contentType := header.Get("Content-Type")
-		if contentType != "" {
-			opts.ContentType = contentType
-		}
-
-		err = blob.Upload(ctx, bucket, uploadedFile.Filename, buf, &opts)
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	return errChan
-}
-
-func uploadToBlobStorage(ctx context.Context, uploadedFile *multipart.FileHeader, bucket string) <-chan error {
-	errChan := make(chan error)
-
-	go func() {
-		blobstgChan := blobstg(ctx, uploadedFile, bucket)
-
-		select {
-		case <-ctx.Done():
-			errChan <- ctx.Err()
-		case err := <-blobstgChan:
-			errChan <- err
-		}
-	}()
-
-	return errChan
-}
-
-func db(ctx context.Context, s *fileServer, f *file.File) <-chan error {
-	errChan := make(chan error)
-
-	go func() {
-		if err := file.Create(ctx, s.db, f); err != nil {
-			errChan <- err
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	return errChan
-}
-
-func insertIntoDB(ctx context.Context, s *fileServer, f *file.File) <-chan error {
-	errChan := make(chan error)
-
-	go func() {
-		dbChan := db(ctx, s, f)
-
-		select {
-		case <-ctx.Done():
-			errChan <- ctx.Err()
-		case err := <-dbChan:
-			errChan <- err
-		}
-	}()
-
-	return errChan
 }

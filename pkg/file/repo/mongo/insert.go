@@ -53,7 +53,7 @@ func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
 
 	_, err := db.InsertOne(ctx, doc)
 	if err != nil {
-		log.Println(err)
+		log.Printf("file: repo: mongo: %v\n", err)
 		return file.ErrInternal
 	}
 
