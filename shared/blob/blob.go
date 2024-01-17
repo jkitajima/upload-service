@@ -11,6 +11,7 @@ import (
 )
 
 type Storager interface {
+	fmt.Stringer
 	Upload(ctx context.Context, bucket, key string, r io.Reader, opts *blob.WriterOptions) error
 	Delete(ctx context.Context, bucket, key string) error
 	zombiekiller.ZombieKiller

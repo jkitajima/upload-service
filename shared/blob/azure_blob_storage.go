@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+
 	"upload/shared/zombiekiller"
 
 	"gocloud.dev/blob"
@@ -12,11 +14,19 @@ import (
 	"gocloud.dev/gcerrors"
 )
 
-type azure struct{ scheme string }
+type azure struct {
+	scheme string
+	domain string
+}
 
 func NewAzureBlobStorage() Storager {
-	return &azure{"azblob://"}
+	return &azure{
+		scheme: "azblob://",
+		domain: fmt.Sprintf("https://%s.blob.core.windows.net/", os.Getenv("AZURE_STORAGE_ACCOUNT")),
+	}
 }
+
+func (az *azure) String() string { return az.domain }
 
 func (az *azure) Upload(ctx context.Context, bucket, key string, r io.Reader, opts *blob.WriterOptions) error {
 	if opts.ContentType == "" {

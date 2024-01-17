@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -73,20 +72,20 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 		f.ContentType = uploadedFile.Header.Get("Content-Type")
 		f.Size = uint(uploadedFile.Size)
 		f.SubmittedAt = now
-		f.StorageLocation = fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", os.Getenv("AZURE_STORAGE_ACCOUNT"), blobstgContainer, f.ID.String())
+		f.StorageLocation = filepath.Join(s.blobstg.String(), blobstgContainer, f.ID.String())
 		uploadedFile.Filename = f.ID.String()
 
 		// open file to be uploaded
 		openedFile, _ := uploadedFile.Open()
 		defer openedFile.Close()
 
-		service := file.Service{Repo: s.db, Blob: s.blobstg, Thrash: s.thrash}
 		serviceRequest := file.CreateRequest{
 			Metadata: &f,
 			Rawdata:  openedFile,
 			Bucket:   blobstgContainer,
 		}
 
+		service := file.Service{Repo: s.db, Blob: s.blobstg, Thrash: s.thrash}
 		serviceResponse, err := service.Create(r.Context(), serviceRequest)
 		if err != nil {
 			switch err {
