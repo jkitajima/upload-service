@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
 )
 
 type ZombieKiller interface {
@@ -25,8 +24,6 @@ func ListenForKillOperations(doneChan <-chan any, ops <-chan KillOperation) {
 			log.Println("zombie killer received a signal to stop listening for incoming operations")
 			return
 		case op := <-ops:
-			fmt.Println("op received")
-			time.Sleep(5 * time.Second)
 			var retry bool
 			var count uint
 
