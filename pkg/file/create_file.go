@@ -4,8 +4,11 @@ import (
 	"context"
 	"io"
 	"log"
+	"sync"
+	"upload/shared/blob"
+	"upload/shared/zombiekiller"
 
-	"gocloud.dev/blob"
+	blobopts "gocloud.dev/blob"
 )
 
 type CreateRequest struct {
@@ -22,51 +25,57 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	metadata := make(chan error, 1)
+	metadata := make(chan error)
 	go func() {
 		metadata <- s.Repo.Insert(ctx, req.Metadata)
 	}()
 
-	rawdata := make(chan error, 1)
+	rawdata := make(chan error)
 	go func() {
-		opts := &blob.WriterOptions{ContentType: req.Metadata.ContentType}
+		opts := &blobopts.WriterOptions{ContentType: req.Metadata.ContentType}
 		rawdata <- s.Blob.Upload(ctx, req.Bucket, req.Metadata.ID.String(), req.Rawdata, opts)
 	}()
+
+	sentinel := struct {
+		mu          sync.Mutex
+		responded   bool
+		errored     bool
+		errResponse error
+	}{}
 
 	for i := 0; i < 2; i++ {
 		select {
 		case err := <-metadata:
+			sentinel.mu.Lock()
 			if err != nil {
 				cancel()
 				log.Printf("file: service: create: metadata: %v\n", err)
-
-				if err := <-rawdata; err != nil {
-					// both metadata and rawdata errored
-					log.Printf("file: service: create: metadata: rawdata: %v\n", err)
+				if sentinel.responded && !sentinel.errored {
+					s.Thrash <- zombiekiller.KillOperation{Killer: s.Blob, Target: &blob.Location{Bucket: req.Bucket, Key: req.Metadata.ID.String()}}
 				}
-
-				// metadata ERRORED but RAWDATA dont
-				// send ERR to ge queue
-
-				return CreateResponse{}, err
+				sentinel.errored = true
+				sentinel.errResponse = err
 			}
+			sentinel.responded = true
+			sentinel.mu.Unlock()
 		case err := <-rawdata:
+			sentinel.mu.Lock()
 			if err != nil {
 				cancel()
 				log.Printf("file: service: create: rawdata: %v\n", err)
-
-				if err := <-metadata; err != nil {
-					// both metadata and rawdata errored
-					log.Printf("file: service: create: rawdata: metadata: %v\n", err)
+				if sentinel.responded && !sentinel.errored {
+					s.Thrash <- zombiekiller.KillOperation{Killer: s.Repo, Target: req.Metadata.ID}
 				}
-
-				// metadata ERRORED but RAWDATA dont
-				// send ERR to ge queue
-
-				return CreateResponse{}, err
+				sentinel.errored = true
+				sentinel.errResponse = err
 			}
+			sentinel.responded = true
+			sentinel.mu.Unlock()
 		}
 	}
 
+	if sentinel.errored {
+		return CreateResponse{}, sentinel.errResponse
+	}
 	return CreateResponse{req.Metadata}, nil
 }

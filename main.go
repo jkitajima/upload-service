@@ -9,7 +9,9 @@ import (
 	"os"
 
 	fileServer "upload/pkg/file/httphandler"
+	"upload/shared/blob"
 	"upload/shared/composer"
+	"upload/shared/zombiekiller"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -57,8 +59,16 @@ func exec() error {
 		return errors.New("environment variable `PORT_NUMBER` is null or non-existent")
 	}
 
+	// init zombie killer
+	doneChan := make(chan any)
+	defer close(doneChan)
+	const thrashBuffer = 1 << 10 * 1 // 1024 * (servers count)
+	thrashChan := make(chan zombiekiller.KillOperation, thrashBuffer)
+	go zombiekiller.ListenForKillOperations(doneChan, thrashChan)
+
+	// init servers
 	srv := composer.NewComposer()
-	file := fileServer.NewServer(dbClient.Collection("files"), "azblob://")
+	file := fileServer.NewServer(dbClient.Collection("files"), blob.NewAzureBlobStorage(), thrashChan)
 	if err := srv.Compose(file); err != nil {
 		return err
 	}

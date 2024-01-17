@@ -2,8 +2,10 @@ package blob
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
+	"upload/shared/zombiekiller"
 
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/azureblob"
@@ -56,6 +58,31 @@ func (az *azure) Delete(ctx context.Context, bucket, item string) error {
 		}
 
 		return ErrInternal
+	}
+
+	return nil
+}
+
+func (az *azure) KillZombie(location fmt.Stringer) error {
+	bucket := location.(*Location).Bucket
+	key := location.(*Location).Key
+
+	buck, err := blob.OpenBucket(context.TODO(), az.scheme+bucket)
+	if err != nil {
+		log.Println(err)
+		return ErrInternal
+	}
+	defer buck.Close()
+
+	if err := buck.Delete(context.TODO(), key); err != nil {
+		log.Println(err)
+
+		errcode := gcerrors.Code(err)
+		if errcode == gcerrors.NotFound {
+			return zombiekiller.ErrNotFound
+		}
+
+		return zombiekiller.ErrInternal
 	}
 
 	return nil

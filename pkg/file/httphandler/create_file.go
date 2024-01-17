@@ -80,7 +80,7 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 		openedFile, _ := uploadedFile.Open()
 		defer openedFile.Close()
 
-		service := file.Service{Repo: s.db, Blob: s.blobstg}
+		service := file.Service{Repo: s.db, Blob: s.blobstg, Thrash: s.thrash}
 		serviceRequest := file.CreateRequest{
 			Metadata: &f,
 			Rawdata:  openedFile,

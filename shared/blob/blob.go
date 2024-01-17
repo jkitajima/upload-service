@@ -3,7 +3,9 @@ package blob
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"upload/shared/zombiekiller"
 
 	"gocloud.dev/blob"
 )
@@ -11,6 +13,13 @@ import (
 type Storager interface {
 	Upload(ctx context.Context, bucket, key string, r io.Reader, opts *blob.WriterOptions) error
 	Delete(ctx context.Context, bucket, key string) error
+	zombiekiller.ZombieKiller
+}
+
+type Location struct{ Bucket, Key string }
+
+func (l *Location) String() string {
+	return fmt.Sprintf("%s/%s", l.Bucket, l.Key)
 }
 
 var (

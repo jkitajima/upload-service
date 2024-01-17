@@ -5,6 +5,7 @@ import (
 
 	repo "upload/pkg/file/repo/mongo"
 	"upload/shared/blob"
+	"upload/shared/zombiekiller"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -16,6 +17,7 @@ type fileServer struct {
 	prefix    string
 	db        *repo.FileCollection
 	blobstg   blob.Storager
+	thrash    chan<- zombiekiller.KillOperation
 	validator *validator.Validate
 }
 
@@ -31,12 +33,13 @@ func (s *fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func NewServer(db *mongo.Collection, blobstg string) *fileServer {
+func NewServer(db *mongo.Collection, blobstg blob.Storager, thrashChan chan<- zombiekiller.KillOperation) *fileServer {
 	s := &fileServer{
 		prefix:    "/files",
 		mux:       chi.NewRouter(),
 		db:        repo.NewRepo(db),
-		blobstg:   blob.NewAzureBlobStorage(),
+		blobstg:   blobstg,
+		thrash:    thrashChan,
 		validator: validator.New(validator.WithRequiredStructEnabled()),
 	}
 	s.routes()

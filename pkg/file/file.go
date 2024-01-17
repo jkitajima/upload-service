@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"upload/shared/blob"
+	"upload/shared/zombiekiller"
 
 	"github.com/google/uuid"
 )
@@ -27,15 +28,17 @@ type File struct {
 }
 
 type Service struct {
-	Repo Repo
-	Blob blob.Storager
+	Repo   Repoer
+	Blob   blob.Storager
+	Thrash chan<- zombiekiller.KillOperation
 }
 
-type Repo interface {
+type Repoer interface {
 	Insert(context.Context, *File) error
 	// FindByID(context.Context, uuid.UUID) (*File, error)
 	// UpdateByID(context.Context, uuid.UUID, *File) error
 	// DeleteByID(context.Context, uuid.UUID) error
+	zombiekiller.ZombieKiller
 }
 
 var (
