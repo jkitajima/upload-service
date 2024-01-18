@@ -1,16 +1,24 @@
 package file
 
-// import (
-// 	"context"
+import (
+	"context"
 
-// 	"github.com/google/uuid"
-// )
+	"github.com/google/uuid"
+)
 
-// func FindByID(ctx context.Context, r repo, id uuid.UUID) (*File, error) {
-// 	f, err := r.FindByID(ctx, id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+type FindByIDRequest struct {
+	ID uuid.UUID
+}
 
-// 	return f, nil
-// }
+type FindByIDResponse struct {
+	Metadata *File
+}
+
+func (s *Service) FindByID(ctx context.Context, req FindByIDRequest) (FindByIDResponse, error) {
+	f, err := s.Repo.FindByID(ctx, req.ID)
+	if err != nil {
+		return FindByIDResponse{}, err
+	}
+
+	return FindByIDResponse{f}, nil
+}

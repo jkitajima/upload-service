@@ -1,51 +1,89 @@
 package httphandler
 
-// import (
-// 	"errors"
-// 	"net/http"
+import (
+	"errors"
+	"net/http"
+	"time"
 
-// 	"upload/pkg/file"
-// 	"upload/util/encoding"
+	"upload/pkg/file"
+	"upload/shared/encoding"
 
-// 	"github.com/go-chi/chi/v5"
-// 	"github.com/google/uuid"
-// )
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+)
 
-// func (s *fileServer) handleFileFindByID() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		id := chi.URLParam(r, "fileID")
+func (s *fileServer) handleFileFindByID() http.HandlerFunc {
+	type response struct {
+		ID              uuid.UUID `json:"id"`
+		UploaderID      string    `json:"uploaderId"`
+		CompanyID       string    `json:"companyId"`
+		Name            string    `json:"name"`
+		Extension       string    `json:"extension"`
+		ContentType     string    `json:"contentType"`
+		Size            uint      `json:"size"`
+		StorageLocation string    `json:"storageLocation"`
+		TimesRequested  uint      `json:"timesRequested"`
+		Description     string    `json:"description"`
+		SubmittedAt     time.Time `json:"submittedAt"`
+		UpdatedAt       time.Time `json:"updatedAt"`
+		UploadedAt      time.Time `json:"uploadedAt"`
+	}
 
-// 		uuid, err := uuid.Parse(id)
-// 		if err != nil {
-// 			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
-// 			return
-// 		}
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "fileID")
 
-// 		f, err := file.FindByID(r.Context(), s.db, uuid)
-// 		if err != nil {
-// 			switch err {
-// 			case file.ErrFileNotFoundByID:
-// 				encoding.ErrorRespond(w, r, http.StatusNotFound, err)
-// 			}
+		uuid, err := uuid.Parse(id)
+		if err != nil {
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
+			return
+		}
 
-// 			return
-// 		}
+		service := file.Service{Repo: s.db, Blob: s.blobstg, Thrash: s.thrash}
+		serviceRequest := file.FindByIDRequest{ID: uuid}
+		serviceResponse, err := service.FindByID(r.Context(), serviceRequest)
+		if err != nil {
+			switch err {
+			case file.ErrNotFoundByID:
+				encoding.ErrorRespond(w, r, http.StatusNotFound, err)
+			default:
+				encoding.ErrorRespond(w, r, http.StatusInternalServerError, err)
+			}
+			return
+		}
 
-// 		params := r.URL.Query()
-// 		if len(params) > 0 {
-// 			switch params.Get("redirect") {
-// 			case "storageLocation":
-// 				http.Redirect(w, r, f.StorageLocation, http.StatusSeeOther)
-// 			default:
-// 				encoding.ErrorRespond(w, r, http.StatusBadRequest, errors.New("value of `redirect` parameter must be a valid file attribute: [`storageLocation`]"))
-// 				return
-// 			}
-// 		}
+		params := r.URL.Query()
+		if len(params) > 0 {
+			switch params.Get("redirect") {
+			case "storageLocation":
+				redirect := serviceResponse.Metadata.StorageLocation
+				http.Redirect(w, r, redirect, http.StatusSeeOther)
+			default:
+				encoding.ErrorRespond(w, r, http.StatusBadRequest, errors.New("value of `redirect` parameter must be a valid file attribute: [`storageLocation`]"))
+			}
+			return
+		}
 
-// 		resp := encoding.DataResponse{Data: f}
-// 		if err := encoding.Respond(w, r, resp, http.StatusOK); err != nil {
-// 			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
-// 			return
-// 		}
-// 	}
-// }
+		meta := serviceResponse.Metadata
+		resp := response{
+			ID:              meta.ID,
+			UploaderID:      meta.UploaderID,
+			CompanyID:       meta.CompanyID,
+			Name:            meta.Name,
+			Extension:       meta.Extension,
+			ContentType:     meta.ContentType,
+			Size:            meta.Size,
+			StorageLocation: meta.StorageLocation,
+			TimesRequested:  meta.TimesRequested,
+			Description:     meta.Description,
+			SubmittedAt:     meta.SubmittedAt,
+			UpdatedAt:       meta.UpdatedAt,
+			UploadedAt:      meta.UploadedAt,
+		}
+
+		dataresp := DataResponse{&resp}
+		if err := encoding.Respond(w, r, dataresp, http.StatusOK); err != nil {
+			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
+			return
+		}
+	}
+}
