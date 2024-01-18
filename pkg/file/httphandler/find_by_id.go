@@ -2,6 +2,7 @@ package httphandler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -56,6 +57,7 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 			switch params.Get("redirect") {
 			case "storageLocation":
 				redirect := serviceResponse.Metadata.StorageLocation
+				log.Printf("redirecting client to %q", redirect)
 				http.Redirect(w, r, redirect, http.StatusSeeOther)
 			default:
 				encoding.ErrorRespond(w, r, http.StatusBadRequest, errors.New("value of `redirect` parameter must be a valid file attribute: [`storageLocation`]"))
