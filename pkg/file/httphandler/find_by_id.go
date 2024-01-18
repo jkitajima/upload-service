@@ -83,7 +83,7 @@ func (s *fileServer) handleFileFindByID() http.HandlerFunc {
 		}
 
 		dataresp := DataResponse{&resp}
-		if err := encoding.Respond(w, r, dataresp, http.StatusOK); err != nil {
+		if err := encoding.Respond(w, r, &dataresp, http.StatusOK); err != nil {
 			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 			return
 		}
