@@ -1,84 +1,33 @@
 package mongo
 
-// import (
-// 	"context"
-// 	"log"
-// 	"upload/pkg/file"
+import (
+	"context"
 
-// 	"github.com/google/uuid"
-// 	"go.mongodb.org/mongo-driver/bson"
-// 	"go.mongodb.org/mongo-driver/bson/primitive"
-// 	"go.mongodb.org/mongo-driver/mongo"
-// )
+	"upload/pkg/file"
 
-// func (db *FileCollection) DeleteByID(ctx context.Context, id uuid.UUID) error {
-// 	binID := primitive.Binary{
-// 		Subtype: bson.TypeBinaryUUID,
-// 		Data:    []byte(id[:]),
-// 	}
+	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
-// 	filter := bson.D{{
-// 		Key:   "_id",
-// 		Value: binID,
-// 	}}
+func (db *FileCollection) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	binID := primitive.Binary{
+		Subtype: bson.TypeBinaryUUID,
+		Data:    []byte(id[:]),
+	}
 
-// 	findChan := make(chan error)
-// 	delChan := make(chan error)
+	filter := bson.D{{
+		Key:   "_id",
+		Value: binID,
+	}}
 
-// 	var f file.File
-// 	go func() {
-// 		findChan <- db.FindOne(
-// 			ctx, bson.D{{
-// 				Key:   "_id",
-// 				Value: binID,
-// 			}},
-// 		).Decode(&f)
-// 	}()
+	result, err := db.DeleteOne(ctx, filter)
+	if err != nil {
+		return file.ErrInternal
+	}
+	if result.DeletedCount == 0 {
+		return file.ErrNotFoundByID
+	}
 
-// 	go func() {
-// 		_, err := db.DeleteOne(ctx, filter)
-// 		delChan <- err
-// 	}()
-
-// 	select {
-// 	case err := <-delChan:
-// 		if err != nil {
-// 			<-findChan
-// 			log.Println(err)
-// 			return file.ErrInternal
-// 		}
-// 	case err := <-findChan:
-// 		if err != nil {
-// 			<-delChan
-// 			log.Println(err)
-
-// 			if err == mongo.ErrNoDocuments {
-// 				return file.ErrFileNotFoundByID
-// 			}
-
-// 			return file.ErrInternal
-// 		}
-// 	}
-
-// 	select {
-// 	case err := <-delChan:
-// 		if err != nil {
-// 			<-findChan
-// 			log.Println(err)
-// 			return file.ErrInternal
-// 		}
-// 	case err := <-findChan:
-// 		if err != nil {
-// 			<-delChan
-// 			log.Println(err)
-
-// 			if err == mongo.ErrNoDocuments {
-// 				return file.ErrFileNotFoundByID
-// 			}
-
-// 			return file.ErrInternal
-// 		}
-// 	}
-
-// 	return nil
-// }
+	return nil
+}

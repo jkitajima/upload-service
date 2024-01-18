@@ -50,17 +50,16 @@ func (az *azure) Upload(ctx context.Context, bucket, key string, r io.Reader, op
 	return nil
 }
 
-// MUST REFACT DELETE
 func (az *azure) Delete(ctx context.Context, bucket, item string) error {
 	buck, err := blob.OpenBucket(ctx, az.scheme+bucket)
 	if err != nil {
-		log.Println(err)
+		log.Printf("azure blob storage: delete: bucket opening: %v\n", err)
 		return ErrInternal
 	}
 	defer buck.Close()
 
 	if err := buck.Delete(ctx, item); err != nil {
-		log.Println(err)
+		log.Printf("azure blob storage: upload: bucket delete: %v\n", err)
 
 		errcode := gcerrors.Code(err)
 		if errcode == gcerrors.NotFound {

@@ -37,7 +37,7 @@ type Repoer interface {
 	Insert(context.Context, *File) error
 	FindByID(context.Context, uuid.UUID) (*File, error)
 	UpdateByID(context.Context, uuid.UUID, *File) error
-	// DeleteByID(context.Context, uuid.UUID) error
+	DeleteByID(context.Context, uuid.UUID) error
 	zombiekiller.ZombieKiller
 }
 

@@ -1,62 +1,36 @@
 package httphandler
 
-// import (
-// 	"context"
-// 	"log"
-// 	"net/http"
-// 	"upload/pkg/file"
-// 	"upload/util/blob"
-// 	"upload/util/encoding"
+import (
+	"net/http"
 
-// 	"github.com/go-chi/chi/v5"
-// 	"github.com/google/uuid"
-// )
+	"upload/pkg/file"
+	"upload/shared/encoding"
 
-// func (s *fileServer) handleFileDelete() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		id := chi.URLParam(r, "fileID")
-// 		uuid, err := uuid.Parse(id)
-// 		if err != nil {
-// 			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
-// 			return
-// 		}
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+)
 
-// 		ctx, cancel := context.WithCancel(r.Context())
-// 		defer cancel()
+func (s *fileServer) handleFileDelete() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "fileID")
+		uuid, err := uuid.Parse(id)
+		if err != nil {
+			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
+			return
+		}
 
-// 		dbChan := make(chan error)
-// 		go func() { dbChan <- file.DeleteByID(ctx, s.db, uuid) }()
+		service := file.Service{Repo: s.db, Blob: s.blobstg, Thrash: s.thrash}
+		serviceRequest := file.DeleteByIDRequest{ID: uuid, Bucket: "company"}
+		if err := service.DeleteByID(r.Context(), serviceRequest); err != nil {
+			switch err {
+			case file.ErrNotFoundByID:
+				encoding.ErrorRespond(w, r, http.StatusNotFound, err)
+			default:
+				encoding.ErrorRespond(w, r, http.StatusInternalServerError, err)
+			}
+			return
+		}
 
-// 		blobChan := make(chan error)
-// 		go func() { blobChan <- blob.Delete(ctx, "company", uuid.String()) }()
-
-// 		for i := 0; i < 2; i++ {
-// 			select {
-// 			case err := <-dbChan:
-// 				if err != nil {
-// 					log.Println(err)
-// 					cancel()
-// 					if err == file.ErrFileNotFoundByID {
-// 						encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
-// 						return
-// 					}
-// 					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
-// 					return
-// 				}
-// 			case err := <-blobChan:
-// 				if err != nil {
-// 					log.Println(err)
-// 					cancel()
-// 					if err == blob.ErrNotFound {
-// 						encoding.ErrorRespond(w, r, http.StatusBadRequest, file.ErrFileNotFoundByID)
-// 						return
-// 					}
-// 					encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
-// 					return
-// 				}
-// 			}
-// 		}
-
-// 		w.WriteHeader(http.StatusNoContent)
-// 	}
-// }
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
