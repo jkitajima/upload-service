@@ -1,127 +1,140 @@
 package mongo
 
-// import (
-// 	"context"
-// 	"log"
-// 	"time"
+import (
+	"context"
+	"log"
+	"time"
 
-// 	"upload/pkg/file"
+	"upload/pkg/file"
 
-// 	"github.com/google/uuid"
-// 	"go.mongodb.org/mongo-driver/bson"
-// 	"go.mongodb.org/mongo-driver/bson/primitive"
-// 	"go.mongodb.org/mongo-driver/mongo"
-// )
+	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+)
 
-// func (db *FileCollection) UpdateByID(ctx context.Context, id uuid.UUID, f *file.File) error {
-// 	binID := primitive.Binary{
-// 		Subtype: bson.TypeBinaryUUID,
-// 		Data:    []byte(id[:]),
-// 	}
+func (db *FileCollection) UpdateByID(ctx context.Context, id uuid.UUID, f *file.File) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-// 	c := make(Changes)
-// 	updatedAt := time.Now()
-// 	update := bson.D{{
-// 		Key:   "$set",
-// 		Value: c.retrieveNonNullableElements(f, updatedAt),
-// 	}}
+	binID := primitive.Binary{
+		Subtype: bson.TypeBinaryUUID,
+		Data:    []byte(id[:]),
+	}
 
-// 	updateChan := make(chan error)
-// 	go func() {
-// 		_, err := db.Collection.UpdateByID(ctx, binID, update)
-// 		updateChan <- err
-// 	}()
+	c := make(Changes)
+	updatedAt := time.Now()
+	update := bson.D{{
+		Key:   "$set",
+		Value: c.retrieveNonNullableElements(f, updatedAt),
+	}}
 
-// 	findChan := make(chan error)
-// 	go func() {
-// 		findChan <- db.FindOne(
-// 			ctx, bson.D{{
-// 				Key:   "_id",
-// 				Value: binID,
-// 			}},
-// 		).Decode(f)
-// 	}()
+	updateChan := make(chan error)
+	go func() {
+		_, err := db.Collection.UpdateByID(ctx, binID, update)
+		updateChan <- err
+	}()
 
-// 	select {
-// 	case err := <-updateChan:
-// 		if err != nil {
-// 			log.Println(err)
-// 			return file.ErrInternal
-// 		}
-// 	case err := <-findChan:
-// 		if err != nil {
-// 			log.Println(err)
+	findChan := make(chan error)
+	go func() {
+		findChan <- db.FindOne(
+			ctx, bson.D{{
+				Key:   "_id",
+				Value: binID,
+			}},
+		).Decode(f)
+	}()
 
-// 			if err == mongo.ErrNoDocuments {
-// 				return file.ErrFileNotFoundByID
-// 			}
+	var errored bool
+	var errResponse error
 
-// 			return file.ErrInternal
-// 		}
-// 	}
+	select {
+	case err := <-updateChan:
+		if err != nil {
+			cancel()
+			log.Printf("file: repo: mongo: update_by_id: update: %v\n", err)
+			errored = true
+			errResponse = file.ErrInternal
+		}
+	case err := <-findChan:
+		if err != nil {
+			cancel()
+			log.Printf("file: repo: mongo: update_by_id: find: %v\n", err)
+			errored = true
+			errResponse = file.ErrInternal
+			if err == mongo.ErrNoDocuments {
+				errResponse = file.ErrNotFoundByID
+			}
+		}
+	}
 
-// 	select {
-// 	case err := <-updateChan:
-// 		if err != nil {
-// 			log.Println(err)
-// 			return file.ErrInternal
-// 		}
+	select {
+	case err := <-updateChan:
+		if err != nil {
+			log.Printf("file: repo: mongo: update_by_id: update: %v\n", err)
+			errored = true
+			errResponse = file.ErrInternal
+		}
 
-// 		if v, ok := c[uploaderID]; ok {
-// 			f.UploaderID = v.(string)
-// 		}
+		if err == nil && !errored {
+			if v, ok := c[uploaderID]; ok {
+				f.UploaderID = v.(string)
+			}
 
-// 		if v, ok := c[companyID]; ok {
-// 			f.CompanyID = v.(string)
-// 		}
+			if v, ok := c[companyID]; ok {
+				f.CompanyID = v.(string)
+			}
 
-// 		if v, ok := c[description]; ok {
-// 			f.Description = v.(string)
-// 		}
+			if v, ok := c[description]; ok {
+				f.Description = v.(string)
+			}
 
-// 		f.UpdatedAt = updatedAt
-// 	case err := <-findChan:
-// 		if err != nil {
-// 			log.Println(err)
+			f.UpdatedAt = updatedAt
+		}
+	case err := <-findChan:
+		if err != nil {
+			log.Printf("file: repo: mongo: update_by_id: find: %v\n", err)
+			errored = true
+			errResponse = file.ErrInternal
+			if err == mongo.ErrNoDocuments {
+				errResponse = file.ErrNotFoundByID
+			}
+		}
+	}
 
-// 			if err == mongo.ErrNoDocuments {
-// 				return file.ErrFileNotFoundByID
-// 			}
+	if errored {
+		return errResponse
+	}
+	return nil
+}
 
-// 			return file.ErrInternal
-// 		}
-// 	}
+const (
+	uploaderID  = "uploaderId"
+	companyID   = "companyId"
+	description = "description"
+	updatedAt   = "updatedAt"
+)
 
-// 	return nil
-// }
+type Changes map[string]any
 
-// const (
-// 	uploaderID  = "uploaderId"
-// 	companyID   = "companyId"
-// 	description = "description"
-// 	updatedAt   = "updatedAt"
-// )
+func (c Changes) retrieveNonNullableElements(f *file.File, t time.Time) []primitive.E {
+	elements := make([]primitive.E, 0, 3)
 
-// type Changes map[string]any
+	if f.UploaderID != "" {
+		elements = append(elements, primitive.E{Key: uploaderID, Value: f.UploaderID})
+		c[uploaderID] = f.UploaderID
+	}
 
-// func (c Changes) retrieveNonNullableElements(f *file.File, t time.Time) []primitive.E {
-// 	elements := make([]primitive.E, 0, 3)
+	if f.CompanyID != "" {
+		elements = append(elements, primitive.E{Key: companyID, Value: f.CompanyID})
+		c[companyID] = f.CompanyID
+	}
 
-// 	if f.UploaderID != "" {
-// 		elements = append(elements, primitive.E{Key: uploaderID, Value: f.UploaderID})
-// 		c[uploaderID] = f.UploaderID
-// 	}
+	if f.Description != "" {
+		elements = append(elements, primitive.E{Key: description, Value: f.Description})
+		c[description] = f.Description
+	}
 
-// 	if f.CompanyID != "" {
-// 		elements = append(elements, primitive.E{Key: companyID, Value: f.CompanyID})
-// 		c[companyID] = f.CompanyID
-// 	}
-
-// 	if f.Description != "" {
-// 		elements = append(elements, primitive.E{Key: description, Value: f.Description})
-// 		c[description] = f.Description
-// 	}
-
-// 	elements = append(elements, primitive.E{Key: updatedAt, Value: t})
-// 	return elements
-// }
+	elements = append(elements, primitive.E{Key: updatedAt, Value: t})
+	return elements
+}
