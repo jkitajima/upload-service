@@ -91,8 +91,8 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 			switch err {
 			default:
 				encoding.ErrorRespond(w, r, http.StatusInternalServerError, err)
-				return
 			}
+			return
 		}
 
 		meta := serviceResponse.Metadata
