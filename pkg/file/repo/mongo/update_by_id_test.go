@@ -39,21 +39,29 @@ func TestUpdateByID(t *testing.T) {
 		inFile *file.File
 		outErr error
 	}{
-		"basic update": {id, &file.File{UploaderID: "444", CompanyID: "555", Description: "Nova descrição aqui"}, nil},
+		"basic update":                  {id, &file.File{UploaderID: "444", CompanyID: "555", Description: "Nova descrição aqui"}, nil},
+		"requested file does not exist": {uuid.New(), &file.File{UploaderID: "444", CompanyID: "555", Description: "Nova descrição aqui"}, file.ErrNotFoundByID},
 	}
 
 	for key, testcase := range cases {
 		t.Run(key, func(t *testing.T) {
 			if err := fileColl.UpdateByID(ctx, testcase.inID, testcase.inFile); err != testcase.outErr {
 				t.Errorf("file: repo: mongo: test_update_by_id: error mismatch (result = %q, expected = %q)\n", err, testcase.outErr)
+				return
 			}
 
 			f, err := fileColl.FindByID(ctx, testcase.inID)
-			if f.ID != testcase.inID {
-				t.Errorf("file: repo: mongo: test_update_by_id: updated file was requested and mismatched%v\n", err)
+			if err != nil {
+				if err != testcase.outErr {
+					t.Errorf("file: repo: mongo: test_update_by_id: error mismatch (err = %v, expected = %v)\n", err, testcase.outErr)
+				}
+				return
 			}
 
 			switch {
+			case f.ID != testcase.inID:
+				t.Errorf("file: repo: mongo: test_update_by_id: updated file was requested and mismatched (err = %v)\n", nil)
+				return
 			case f.UploaderID != testcase.inFile.UploaderID:
 				t.Errorf("file: repo: mongo: test_update_by_id: uploaderID mismatch (result = %q, expected = %q)\n", f.UploaderID, testcase.inFile.UploaderID)
 			case f.CompanyID != testcase.inFile.CompanyID:

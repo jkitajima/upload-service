@@ -46,7 +46,7 @@ func (db *FileCollection) UpdateByID(ctx context.Context, id uuid.UUID, f *file.
 	}()
 
 	var errored bool
-	var errResponse error
+	errResponse := file.ErrInternal
 
 	select {
 	case err := <-updateChan:
@@ -54,14 +54,12 @@ func (db *FileCollection) UpdateByID(ctx context.Context, id uuid.UUID, f *file.
 			cancel()
 			log.Printf("file: repo: mongo: update_by_id: update: %v\n", err)
 			errored = true
-			errResponse = file.ErrInternal
 		}
 	case err := <-findChan:
 		if err != nil {
 			cancel()
 			log.Printf("file: repo: mongo: update_by_id: find: %v\n", err)
 			errored = true
-			errResponse = file.ErrInternal
 			if err == mongo.ErrNoDocuments {
 				errResponse = file.ErrNotFoundByID
 			}
@@ -73,7 +71,6 @@ func (db *FileCollection) UpdateByID(ctx context.Context, id uuid.UUID, f *file.
 		if err != nil {
 			log.Printf("file: repo: mongo: update_by_id: update: %v\n", err)
 			errored = true
-			errResponse = file.ErrInternal
 		}
 
 		if err == nil && !errored {
@@ -95,7 +92,6 @@ func (db *FileCollection) UpdateByID(ctx context.Context, id uuid.UUID, f *file.
 		if err != nil {
 			log.Printf("file: repo: mongo: update_by_id: find: %v\n", err)
 			errored = true
-			errResponse = file.ErrInternal
 			if err == mongo.ErrNoDocuments {
 				errResponse = file.ErrNotFoundByID
 			}
