@@ -42,10 +42,11 @@ type Repoer interface {
 }
 
 var (
-	ErrInternal           = errors.New("the file service encountered an unexpected condition that prevented it from fulfilling the request")
-	ErrRepoReceivedSignal = errors.New("repository received a signal to abort the operation")
-	ErrNotFoundByID       = errors.New("could not find any file with provided ID")
-	ErrEmptyContentType   = errors.New("file Content-Type is empty")
-	ErrEmptyBucketName    = errors.New("provided bucket name is empty")
-	ErrInvalidUUID        = errors.New("provided file UUID is invalid")
+	ErrInternal            = errors.New("the file service encountered an unexpected condition that prevented it from fulfilling the request")
+	ErrRepoReceivedSignal  = errors.New("repository received a signal to abort the operation")
+	ErrNotFoundByID        = errors.New("could not find any file with provided ID")
+	ErrEmptyContentType    = errors.New("file Content-Type is empty")
+	ErrEmptyBucketName     = errors.New("provided bucket name is empty")
+	ErrInvalidUUID         = errors.New("provided file UUID is invalid")
+	ErrInsertDuplicatedKey = errors.New("insertion failed because a file with the provided key already exists")
 )

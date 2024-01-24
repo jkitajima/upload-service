@@ -9,6 +9,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
@@ -53,7 +54,10 @@ func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
 
 	_, err := db.InsertOne(ctx, doc)
 	if err != nil {
-		log.Printf("file: repo: mongo: %v\n", err)
+		log.Printf("file: repo: mongo: insert: %v\n", err)
+		if err := mongo.IsDuplicateKeyError(err); err {
+			return file.ErrInsertDuplicatedKey
+		}
 		return file.ErrInternal
 	}
 
