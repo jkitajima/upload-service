@@ -49,4 +49,5 @@ var (
 	ErrEmptyBucketName     = errors.New("provided bucket name is empty")
 	ErrInvalidUUID         = errors.New("provided file UUID is invalid")
 	ErrInsertDuplicatedKey = errors.New("insertion failed because a file with the provided key already exists")
+	ErrTimeout             = errors.New("requested service operation timed out")
 )

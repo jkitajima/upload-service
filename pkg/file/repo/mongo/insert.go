@@ -55,10 +55,15 @@ func (db *FileCollection) Insert(ctx context.Context, f *file.File) error {
 	_, err := db.InsertOne(ctx, doc)
 	if err != nil {
 		log.Printf("file: repo: mongo: insert: %v\n", err)
-		if err := mongo.IsDuplicateKeyError(err); err {
+
+		switch {
+		case mongo.IsDuplicateKeyError(err):
 			return file.ErrInsertDuplicatedKey
+		case mongo.IsTimeout(err):
+			return file.ErrTimeout
+		default:
+			return file.ErrInternal
 		}
-		return file.ErrInternal
 	}
 
 	return nil
