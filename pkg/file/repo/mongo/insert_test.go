@@ -25,7 +25,7 @@ func TestInsert(t *testing.T) {
 	t.Cleanup(func() { client.Disconnect(ctx) })
 
 	db := client.Database("Upload")
-	coll := db.Collection("Files_insert")
+	coll := db.Collection("Files-insert")
 	coll.Drop(ctx)
 	t.Cleanup(func() { coll.Drop(ctx) })
 	fileColl := NewRepo(coll)
