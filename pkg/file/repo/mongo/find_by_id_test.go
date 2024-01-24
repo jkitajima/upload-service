@@ -40,13 +40,26 @@ func TestFindByID(t *testing.T) {
 		outErr  error
 	}{
 		"fetching a file should increment the requested counter": {id, &f, nil},
+		"file not found": {uuid.New(), &f, file.ErrNotFoundByID},
 	}
 
 	for key, testcase := range cases {
 		t.Run(key, func(t *testing.T) {
 			f, err := fileColl.FindByID(ctx, testcase.inID)
-			if f.ID != testcase.inID || err != testcase.outErr || f.TimesRequested != 1 {
-				t.Errorf("file: repo: mongo: test_find_by_id: %v\n", err)
+			if err != nil {
+				if err != testcase.outErr {
+					t.Errorf("file: repo: mongo: test_find_by_id: error mismatch (err = %v, expected = %v)\n", err, testcase.outErr)
+				}
+				return
+			}
+
+			switch {
+			case err != testcase.outErr:
+				t.Errorf("file: repo: mongo: test_find_by_id: error mismatch (err = %v, expected = %v)\n", err, testcase.outErr)
+			case f.ID != testcase.inID:
+				t.Errorf("file: repo: mongo: test_find_by_id: ID mismatch (result = %v, expected = %v)\n", err, testcase.outErr)
+			case f.TimesRequested != 1:
+				t.Errorf("file: repo: mongo: test_find_by_id: times request counter mismatch (result = %v, expected = %v)\n", err, testcase.outErr)
 			}
 		})
 	}
