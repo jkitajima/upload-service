@@ -29,4 +29,5 @@ var (
 	ErrReceivedSignal   = errors.New("blob received a signal to abort the operation")
 	ErrEmptyContentType = errors.New("blob Content-Type is empty")
 	ErrNotFound         = errors.New("blob was not found")
+	ErrDomainEnv        = errors.New("environment variable `AZURE_STORAGE_ACCOUNT` is either empty or not set")
 )

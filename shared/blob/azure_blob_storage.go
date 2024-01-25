@@ -2,7 +2,6 @@ package blob
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,7 +22,7 @@ type azure struct {
 func NewAzureBlobStorage() (Storager, error) {
 	domain := os.Getenv("AZURE_STORAGE_ACCOUNT")
 	if domain == "" {
-		return nil, errors.New("environment variable `AZURE_STORAGE_ACCOUNT` is either empty or not set")
+		return nil, ErrDomainEnv
 	}
 
 	return &azure{
