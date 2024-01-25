@@ -2,6 +2,7 @@ package blob
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -19,11 +20,16 @@ type azure struct {
 	domain string
 }
 
-func NewAzureBlobStorage() Storager {
+func NewAzureBlobStorage() (Storager, error) {
+	domain := os.Getenv("AZURE_STORAGE_ACCOUNT")
+	if domain == "" {
+		return nil, errors.New("environment variable `AZURE_STORAGE_ACCOUNT` is either empty or not set")
+	}
+
 	return &azure{
 		scheme: "azblob://",
-		domain: fmt.Sprintf("https://%s.blob.core.windows.net/", os.Getenv("AZURE_STORAGE_ACCOUNT")),
-	}
+		domain: fmt.Sprintf("https://%s.blob.core.windows.net/", domain),
+	}, nil
 }
 
 func (az *azure) String() string { return az.domain }

@@ -67,8 +67,13 @@ func exec() error {
 	go zombiekiller.ListenForKillOperations(doneChan, thrashChan)
 
 	// init servers
+	blobstg, err := blob.NewAzureBlobStorage()
+	if err != nil {
+		return err
+	}
+
 	srv := composer.NewComposer()
-	file := fileServer.NewServer(dbClient.Collection("files"), blob.NewAzureBlobStorage(), thrashChan)
+	file := fileServer.NewServer(dbClient.Collection("files"), blobstg, thrashChan)
 	if err := srv.Compose(file); err != nil {
 		return err
 	}
