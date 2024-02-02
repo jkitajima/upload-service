@@ -21,8 +21,13 @@ type azure struct {
 
 func NewAzureBlobStorage() (Storager, error) {
 	domain := os.Getenv("AZURE_STORAGE_ACCOUNT")
-	if domain == "" {
-		return nil, ErrDomainEnv
+	key := os.Getenv("AZURE_STORAGE_KEY")
+
+	switch {
+	case domain == "":
+		return nil, ErrAccountEnvVar
+	case key == "":
+		return nil, ErrKeyEnvVar
 	}
 
 	return &azure{

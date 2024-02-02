@@ -6,18 +6,22 @@ import (
 
 func TestNewAzureBlobStorage(t *testing.T) {
 	cases := map[string]struct {
-		inDomain string
-		inSetenv func(key, value string)
-		outStg   Storager
-		outErr   error
+		inSetenv  func(key, value string)
+		inAccount string
+		inKey     string
+		outStg    Storager
+		outErr    error
 	}{
-		"new repo":                     {"custom-domain", t.Setenv, &azure{domain: "https://custom-domain.blob.core.windows.net/"}, nil},
-		"missing environment variable": {"", t.Setenv, nil, ErrDomainEnv},
+		"new repo": {t.Setenv, "devstoreaccount1", "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==", &azure{domain: "https://devstoreaccount1.blob.core.windows.net/"}, nil},
+		"missing environment variable `AZURE_STORAGE_ACCOUNT`": {t.Setenv, "", "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==", nil, ErrAccountEnvVar},
+		"missing environment variable `AZURE_STORAGE_KEY`":     {t.Setenv, "devstoreaccount1", "", nil, ErrKeyEnvVar},
 	}
 
 	for key, testcase := range cases {
 		t.Run(key, func(t *testing.T) {
-			testcase.inSetenv("AZURE_STORAGE_ACCOUNT", testcase.inDomain)
+			testcase.inSetenv("AZURE_STORAGE_ACCOUNT", testcase.inAccount)
+			testcase.inSetenv("AZURE_STORAGE_KEY", testcase.inKey)
+
 			blobstg, err := NewAzureBlobStorage()
 			if err != nil {
 				if err != testcase.outErr {

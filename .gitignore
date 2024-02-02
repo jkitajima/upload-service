@@ -1,1 +1,4 @@
 .env
+
+# Azurite (Azure Blob Storage emulator)
+__azurite*
