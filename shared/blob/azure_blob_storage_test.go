@@ -81,3 +81,33 @@ func TestUpload(t *testing.T) {
 		})
 	}
 }
+
+func TestDelete(t *testing.T) {
+	const timeout = 15 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	t.Cleanup(func() { cancel() })
+
+	blobstg, err := NewAzureBlobStorage()
+	if err != nil {
+		t.Skipf("blob: azure_blob_storage: test_new_azure_blob_storage: failed to create a blob storage for testing (err = %q)\n", err)
+	}
+
+	cases := map[string]struct {
+		inBucket, inKey string
+		outErr          error
+	}{
+		"empty bucket name":       {"", "file1.txt", ErrEmptyBucket},
+		"empty blob key":          {"company", "", ErrEmptyBlobKey},
+		"bucket does not exist":   {"c0mpany", "file1.txt", ErrBucketNotFound},
+		"blob key does not exist": {"company", "file2.txt", ErrBlobNotFound},
+		"basic delete":            {"company", "file1.txt", nil},
+	}
+
+	for key, testcase := range cases {
+		t.Run(key, func(t *testing.T) {
+			if err := blobstg.Delete(ctx, testcase.inBucket, testcase.inKey); err != testcase.outErr {
+				t.Errorf("blob: azure_blob_storage: test_new_azure_blob_storage: delete: error mismatched (err = %q, expected = %q)\n", err, testcase.outErr)
+			}
+		})
+	}
+}

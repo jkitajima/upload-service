@@ -81,6 +81,17 @@ func (az *azure) Upload(ctx context.Context, bucket, key string, r io.Reader, op
 }
 
 func (az *azure) Delete(ctx context.Context, bucket, item string) error {
+	switch {
+	case bucket == "":
+		err := ErrEmptyBucket
+		log.Printf("blob: azure blob storage: delete: %v\n", err)
+		return err
+	case item == "":
+		err := ErrEmptyBlobKey
+		log.Printf("blob: azure blob storage: delete: %v\n", err)
+		return err
+	}
+
 	buck, err := blob.OpenBucket(ctx, az.scheme+bucket)
 	if err != nil {
 		log.Printf("azure blob storage: delete: bucket opening: %v\n", err)
@@ -89,14 +100,16 @@ func (az *azure) Delete(ctx context.Context, bucket, item string) error {
 	defer buck.Close()
 
 	if err := buck.Delete(ctx, item); err != nil {
-		log.Printf("azure blob storage: upload: bucket delete: %v\n", err)
-
-		errcode := gcerrors.Code(err)
-		if errcode == gcerrors.NotFound {
-			return ErrBlobNotFound
+		log.Printf("blob: azure blob storage: delete: bucket delete: %v\n", err)
+		switch {
+		case bloberror.HasCode(err, bloberror.ContainerNotFound):
+			err = ErrBucketNotFound
+		case bloberror.HasCode(err, bloberror.BlobNotFound):
+			err = ErrBlobNotFound
+		default:
+			err = ErrInternal
 		}
-
-		return ErrInternal
+		return err
 	}
 
 	return nil
