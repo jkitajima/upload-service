@@ -65,12 +65,12 @@ func TestUpload(t *testing.T) {
 		inOpts          *blob.WriterOptions
 		outErr          error
 	}{
-		"basic upload": {"company", "file1.txt", strings.NewReader("file1 test data"), &blob.WriterOptions{ContentType: "text/plain"}, nil},
-		// "missing bucket":       {},
-		// "invalid bucket":       {},
-		// "missing key":          {},
-		// "nil reader":           {},
-		// "missing content-type": {},
+		"basic upload":        {"company", "file1.txt", strings.NewReader("file1 test data"), &blob.WriterOptions{ContentType: "text/plain"}, nil},
+		"non-existent bucket": {"c0mpany", "file2.txt", strings.NewReader("file2 test data"), &blob.WriterOptions{ContentType: "text/plain"}, ErrBucketNotFound},
+		"missing key":         {"company", "", strings.NewReader("file3 test data"), &blob.WriterOptions{ContentType: "text/plain"}, ErrEmptyBlobKey},
+		"missing bucket name": {"", "file4.txt", strings.NewReader("file4 test data"), &blob.WriterOptions{ContentType: "text/plain"}, ErrEmptyBucket},
+		"empty content-type":  {"company", "file5.txt", strings.NewReader("file5 test data"), &blob.WriterOptions{ContentType: ""}, ErrEmptyContentType},
+		"empty/nil reader":    {"company", "file6.txt", nil, &blob.WriterOptions{ContentType: "text/plain"}, ErrNilReader},
 	}
 
 	for key, testcase := range cases {

@@ -9,6 +9,7 @@ import (
 
 	"upload/shared/zombiekiller"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/azureblob"
 	"gocloud.dev/gcerrors"
@@ -39,8 +40,21 @@ func NewAzureBlobStorage() (Storager, error) {
 func (az *azure) String() string { return az.domain }
 
 func (az *azure) Upload(ctx context.Context, bucket, key string, r io.Reader, opts *blob.WriterOptions) error {
-	if opts.ContentType == "" {
+	switch {
+	case r == nil:
+		err := ErrNilReader
+		log.Printf("azure blob storage: upload: blob writer options: %v\n", err)
+		return err
+	case opts.ContentType == "":
 		err := ErrEmptyContentType
+		log.Printf("azure blob storage: upload: blob writer options: %v\n", err)
+		return err
+	case bucket == "":
+		err := ErrEmptyBucket
+		log.Printf("azure blob storage: upload: blob writer options: %v\n", err)
+		return err
+	case key == "":
+		err := ErrEmptyBlobKey
 		log.Printf("azure blob storage: upload: blob writer options: %v\n", err)
 		return err
 	}
@@ -53,8 +67,14 @@ func (az *azure) Upload(ctx context.Context, bucket, key string, r io.Reader, op
 	defer buck.Close()
 
 	if err := buck.Upload(ctx, key, r, opts); err != nil {
-		log.Printf("azure blob storage: upload: bucket upload: %v\n", err)
-		return ErrInternal
+		log.Printf("blob: azure blob storage: upload: bucket upload: %v\n", err)
+		switch {
+		case bloberror.HasCode(err, bloberror.ContainerNotFound):
+			err = ErrBucketNotFound
+		default:
+			err = ErrInternal
+		}
+		return err
 	}
 
 	return nil
@@ -73,7 +93,7 @@ func (az *azure) Delete(ctx context.Context, bucket, item string) error {
 
 		errcode := gcerrors.Code(err)
 		if errcode == gcerrors.NotFound {
-			return ErrNotFound
+			return ErrBlobNotFound
 		}
 
 		return ErrInternal
