@@ -7,12 +7,9 @@ import (
 	"log"
 	"os"
 
-	"upload/shared/zombiekiller"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/azureblob"
-	"gocloud.dev/gcerrors"
 )
 
 type azure struct {
@@ -116,8 +113,19 @@ func (az *azure) Delete(ctx context.Context, bucket, item string) error {
 }
 
 func (az *azure) KillZombie(location fmt.Stringer) error {
+	if location == nil {
+		return ErrNilLocation
+	}
+
 	bucket := location.(*Location).Bucket
+	if bucket == "" {
+		return ErrEmptyBucket
+	}
+
 	key := location.(*Location).Key
+	if key == "" {
+		return ErrEmptyBlobKey
+	}
 
 	buck, err := blob.OpenBucket(context.TODO(), az.scheme+bucket)
 	if err != nil {
@@ -127,14 +135,16 @@ func (az *azure) KillZombie(location fmt.Stringer) error {
 	defer buck.Close()
 
 	if err := buck.Delete(context.TODO(), key); err != nil {
-		log.Println(err)
-
-		errcode := gcerrors.Code(err)
-		if errcode == gcerrors.NotFound {
-			return zombiekiller.ErrNotFound
+		log.Printf("blob: azure blob storage: delete: bucket delete: %v\n", err)
+		switch {
+		case bloberror.HasCode(err, bloberror.ContainerNotFound):
+			err = ErrBucketNotFound
+		case bloberror.HasCode(err, bloberror.BlobNotFound):
+			err = ErrBlobNotFound
+		default:
+			err = ErrInternal
 		}
-
-		return zombiekiller.ErrInternal
+		return err
 	}
 
 	return nil

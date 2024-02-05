@@ -33,6 +33,7 @@ var (
 	ErrBlobNotFound     = errors.New("blob was not found")
 	ErrEmptyBlobKey     = errors.New("blob key is empty")
 	ErrNilReader        = errors.New("io.Reader is nil")
+	ErrNilLocation      = errors.New("location (`fmt.Stringer`) is nil")
 	ErrAccountEnvVar    = errors.New("environment variable `AZURE_STORAGE_ACCOUNT` is either empty or not set")
 	ErrKeyEnvVar        = errors.New("environment variable `AZURE_STORAGE_KEY` is either empty or not set")
 )
