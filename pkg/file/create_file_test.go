@@ -39,8 +39,11 @@ func TestCreate(t *testing.T) {
 			stg.On("Upload", testcase.inReq.Bucket, testcase.inReq.Metadata.ID.String(), testcase.inReq.Rawdata, &blob.WriterOptions{ContentType: testcase.inReq.Metadata.ContentType}).Return(testcase.outErr)
 
 			resp, err := s.Create(ctx, testcase.inReq)
-			if err != testcase.outErr || resp != testcase.outResp {
-				t.Errorf("deu ruim")
+			switch {
+			case err != testcase.outErr:
+				t.Errorf("file: service: test_create: error mismatched (result = %v, expected = %v)\n", err, testcase.outErr)
+			case resp != testcase.outResp:
+				t.Errorf("file: service: test_create: response metadata mismatched (result = %v, expected = %v)\n", resp.Metadata, testcase.outResp.Metadata)
 			}
 		})
 	}
