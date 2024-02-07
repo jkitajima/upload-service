@@ -39,10 +39,6 @@ func (r *repoerMock) KillZombie(key fmt.Stringer) error {
 
 type storagerMock struct{ mock.Mock }
 
-func (s *storagerMock) String() string {
-	return "storager mock"
-}
-
 func (s *storagerMock) Upload(ctx context.Context, bucket, key string, r io.Reader, opts *blob.WriterOptions) error {
 	args := s.Called(bucket, key, r, opts)
 	return args.Error(0)
