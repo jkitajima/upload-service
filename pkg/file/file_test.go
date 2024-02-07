@@ -23,7 +23,7 @@ func (r *repoerMock) FindByID(ctx context.Context, id uuid.UUID) (*File, error) 
 }
 
 func (r *repoerMock) UpdateByID(ctx context.Context, id uuid.UUID, f *File) error {
-	args := r.Called(ctx, id, f)
+	args := r.Called(id, f)
 	return args.Error(0)
 }
 
