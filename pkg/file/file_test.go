@@ -18,7 +18,7 @@ func (r *repoerMock) Insert(ctx context.Context, f *File) error {
 }
 
 func (r *repoerMock) FindByID(ctx context.Context, id uuid.UUID) (*File, error) {
-	args := r.Called(ctx, id)
+	args := r.Called(id)
 	return args.Get(0).(*File), args.Error(1)
 }
 
