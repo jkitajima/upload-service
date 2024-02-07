@@ -28,7 +28,7 @@ func (r *repoerMock) UpdateByID(ctx context.Context, id uuid.UUID, f *File) erro
 }
 
 func (r *repoerMock) DeleteByID(ctx context.Context, id uuid.UUID) error {
-	args := r.Called(ctx, id)
+	args := r.Called(id)
 	return args.Error(0)
 }
 
@@ -45,7 +45,7 @@ func (s *storagerMock) Upload(ctx context.Context, bucket, key string, r io.Read
 }
 
 func (s *storagerMock) Delete(ctx context.Context, bucket, key string) error {
-	args := s.Called(ctx, bucket, key)
+	args := s.Called(bucket, key)
 	return args.Error(0)
 }
 
