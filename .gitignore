@@ -1,4 +1,8 @@
+# Environment variables
 .env
 
 # Azurite (Azure Blob Storage emulator)
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
 __azurite*
