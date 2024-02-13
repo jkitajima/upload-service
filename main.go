@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	fileServer "upload/pkg/file/httphandler"
 	"upload/shared/blob"
@@ -19,17 +21,47 @@ import (
 )
 
 func main() {
-	if err := exec(); err != nil {
+	env := flag.String("env", "unset", "set which environment to load variables")
+	flag.Parse()
+
+	if err := loadenv(*env); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
+	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 }
 
-func exec() error {
-	if err := godotenv.Load(); err != nil {
+func loadenv(env string) error {
+	switch env {
+	case "unset":
+		fmt.Printf("Program executed without setting an environment. Using default option: %q.\n", "dev")
+		fallthrough
+	case "dev":
+		env = "dev.env"
+	case "test":
+		env = "test.env"
+	default:
+		return fmt.Errorf("invalid environment. valid options are: [%q, %q]", "dev", "test")
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
 		return err
 	}
 
+	env = filepath.Join(wd, env)
+	if err := godotenv.Overload(env); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func run() error {
 	// connect to mongodb
 	uri := os.Getenv("MONGODB_URI")
 	if uri == "" {
