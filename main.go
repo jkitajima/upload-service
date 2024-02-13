@@ -54,9 +54,9 @@ func exec() error {
 	dbClient := mongoClient.Database(dbName)
 
 	// compose pkg servers
-	port := os.Getenv("PORT_NUMBER")
+	port := os.Getenv("APP_PORT")
 	if port == "" {
-		return errors.New("environment variable `PORT_NUMBER` is null or non-existent")
+		return errors.New("environment variable `APP_PORT` is null or non-existent")
 	}
 
 	// init zombie killer
