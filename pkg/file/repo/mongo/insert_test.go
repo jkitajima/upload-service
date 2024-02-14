@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -13,19 +14,40 @@ import (
 )
 
 func TestInsert(t *testing.T) {
-	const timeout = 15 * time.Second
+	const (
+		location   = "upload/pkg/file/repo/mongo/insert_test.go"
+		function   = "TestInsert"
+		timeout    = 15 * time.Second
+		mongodbURI = "MONGODB_URI"
+		dbName     = "upload-test"
+		collName   = "files-insert"
+	)
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	t.Cleanup(func() { cancel() })
 
-	uri := "mongodb://localhost:27017"
+	uri := os.Getenv(mongodbURI)
+	if uri == "" {
+		t.Skipf(`
+	location: %s
+	func: %s
+	msg: environment variable %q is either empty or missing`,
+			location, function, mongodbURI)
+	}
+
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		t.Skipf("file: repo: mongo: failed to connect with test db: %v", err)
+		t.Skipf(`
+	location: %s
+	func: %s
+	msg: failed to connect with test db
+	errmsg: %v`,
+			location, function, err)
 	}
 	t.Cleanup(func() { client.Disconnect(ctx) })
 
-	db := client.Database("Upload")
-	coll := db.Collection("Files-insert")
+	db := client.Database(dbName)
+	coll := db.Collection(collName)
 	coll.Drop(ctx)
 	t.Cleanup(func() { coll.Drop(ctx) })
 	fileColl := NewRepo(coll)
