@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  metadatadb:
+    container_name: upload-service-dev-metadatadb
+    image: mongodb/mongodb-community-server:7.0.5-ubuntu2204
+    ports:
+      - "0.0.0.0:27017:27017"
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: rootusr
+      MONGODB_INITDB_ROOT_PASSWORD: rootpasswd
+    restart: unless-stopped
+    healthcheck:
+      test: echo 'db.runCommand({serverStatus:1}).ok' | mongosh admin -u $$MONGODB_INITDB_ROOT_USERNAME -p $$MONGODB_INITDB_ROOT_PASSWORD | grep 1
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - metadatadb:/var/lib/mongodb/data
+
+  blobstg:
+    container_name: upload-service-dev-blobstg
+    image: mcr.microsoft.com/azure-storage/azurite
+    hostname: azurite
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:10000:10000"
+      - "0.0.0.0:10001:10001"
+      - "0.0.0.0:10002:10002"
+    volumes:
+      - blobstg:/var/lib/azurite/data
+
+volumes:
+  metadatadb:
+  blobstg:

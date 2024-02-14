@@ -41,6 +41,7 @@ func loadenv(env string) error {
 		fmt.Printf("Program executed without setting an environment. Using default option: %q.\n", "dev")
 		fallthrough
 	case "dev":
+		fmt.Printf("Running Go app using %q environment.\n", "development")
 		env = "dev.env"
 	case "test":
 		env = "test.env"
@@ -110,7 +111,7 @@ func run() error {
 		return err
 	}
 
-	log.Printf("server listening on port %s...\n", port)
+	log.Printf("Server listening on port %s...\n", port)
 	log.Fatalln(http.ListenAndServe(":"+port, srv))
 
 	return nil
