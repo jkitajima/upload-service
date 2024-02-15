@@ -13,19 +13,31 @@ import (
 )
 
 type azure struct {
+	local  bool
 	scheme string
 	domain string
 }
 
 func NewAzureBlobStorage() (Storager, error) {
+	env := os.Getenv("APP_ENV")
 	domain := os.Getenv("AZURE_STORAGE_ACCOUNT")
 	key := os.Getenv("AZURE_STORAGE_KEY")
 
 	switch {
+	case env == "":
+		return nil, ErrInvalidEnv
 	case domain == "":
 		return nil, ErrAccountEnvVar
 	case key == "":
 		return nil, ErrKeyEnvVar
+	}
+
+	if env == "dev" || env == "test" {
+		return &azure{
+			local:  true,
+			scheme: "azblob://",
+			domain: fmt.Sprintf("http://127.0.0.1:10000/%s/", domain),
+		}, nil
 	}
 
 	return &azure{
@@ -56,7 +68,12 @@ func (az *azure) Upload(ctx context.Context, bucket, key string, r io.Reader, op
 		return err
 	}
 
-	buck, err := blob.OpenBucket(ctx, az.scheme+bucket)
+	url := az.scheme + bucket
+	if az.local {
+		url += "?protocol=http&domain=localhost:10000"
+	}
+
+	buck, err := blob.OpenBucket(ctx, url)
 	if err != nil {
 		log.Printf("azure blob storage: upload: bucket opening: %v\n", err)
 		return ErrInternal
@@ -89,7 +106,12 @@ func (az *azure) Delete(ctx context.Context, bucket, item string) error {
 		return err
 	}
 
-	buck, err := blob.OpenBucket(ctx, az.scheme+bucket)
+	url := az.scheme + bucket
+	if az.local {
+		url += "?protocol=http&domain=localhost:10000"
+	}
+
+	buck, err := blob.OpenBucket(ctx, url)
 	if err != nil {
 		log.Printf("azure blob storage: delete: bucket opening: %v\n", err)
 		return ErrInternal
@@ -127,7 +149,12 @@ func (az *azure) KillZombie(location fmt.Stringer) error {
 		return ErrEmptyBlobKey
 	}
 
-	buck, err := blob.OpenBucket(context.TODO(), az.scheme+bucket)
+	url := az.scheme + bucket
+	if az.local {
+		url += "?protocol=http&domain=localhost:10000"
+	}
+
+	buck, err := blob.OpenBucket(context.TODO(), url)
 	if err != nil {
 		log.Println(err)
 		return ErrInternal

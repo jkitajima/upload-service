@@ -26,6 +26,7 @@ func (l *Location) String() string {
 
 var (
 	ErrInternal         = errors.New("error while communicating with blob storage")
+	ErrInvalidEnv       = errors.New("missing or invalid application environment")
 	ErrReceivedSignal   = errors.New("blob received a signal to abort the operation")
 	ErrEmptyContentType = errors.New("blob Content-Type is empty")
 	ErrBucketNotFound   = errors.New("bucket was not found")
