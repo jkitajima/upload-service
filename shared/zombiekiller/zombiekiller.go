@@ -21,35 +21,31 @@ func ListenForKillOperations(doneChan <-chan any, ops <-chan KillOperation, retr
 		case <-doneChan:
 			return
 		case op := <-ops:
-			var retry bool
-			var count uint8
-
-			if op.Killer == nil || op.Target == nil {
-				out.Write([]byte("zombiekiller: either killer or target is nil. ignoring received operation\n"))
+			switch {
+			case op.Killer == nil:
+				fmt.Fprintln(out, "zombiekiller: killer is nil. ignoring received operation")
+				goto End
+			case op.Target == nil:
+				fmt.Fprintln(out, "zombiekiller: target is nil. ignoring received operation")
 				goto End
 			}
 
-			for ; count < retryCount; count++ {
-				if retry {
-					out.Write([]byte(fmt.Sprintf("zombiekiller: retrying kill operation (retry count: %d)\n", count)))
+			for i := 0; i <= int(retryCount); i++ {
+				if i == int(retryCount) && retryCount > 0 {
+					fmt.Fprintln(out, "zombiekiller: maximum retries reached. could not delete zombie data")
+					break
 				}
 
 				if err := op.Killer.KillZombie(op.Target); err != nil {
-					switch err {
-					case ErrInternal:
-						retry = true
+					if err == ErrNotFound {
+						break
 					}
 				} else {
+					fmt.Fprintln(out, "zombiekiller: zombie data was found and killed")
 					break
 				}
 			}
 
-			if count > retryCount {
-				out.Write([]byte("zombiekiller: maximum retry count passed. aborting retries\n"))
-				return
-			}
-
-			out.Write([]byte("zombiekiller: zombie data was found and killed\n"))
 		End:
 		}
 	}

@@ -26,9 +26,6 @@ func (t *targetMock) String() string {
 }
 
 func TestListenForKillOperations(t *testing.T) {
-	zk := &zombieKillerMock{}
-	tgt := &targetMock{}
-
 	cases := map[string]struct {
 		sendCount, retryCount int
 		rw                    io.ReadWriter
@@ -38,10 +35,10 @@ func TestListenForKillOperations(t *testing.T) {
 		zk                    ZombieKiller
 		zkErr                 error
 	}{
-		"nil zombiekiller must return msg to output": {1, 4, &bytes.Buffer{}, []byte("zombiekiller: either killer or target is nil. ignoring received operation\n"), tgt, "gopher", nil, nil},
-		"nil target must return msg to output":       {1, 4, &bytes.Buffer{}, []byte("zombiekiller: either killer or target is nil. ignoring received operation\n"), nil, "gopher", zk, nil},
-		"basic zombie killing":                       {1, 4, &bytes.Buffer{}, []byte("zombiekiller: zombie data was found and killed\n"), tgt, "gopher", zk, nil},
-		"basic retry":                                {1, 4, &bytes.Buffer{}, []byte("zombiekiller: retrying kill operation (retry count: 1)\n"), tgt, "gopher", zk, ErrInternal},
+		"nil zombiekiller":     {1, 1, &bytes.Buffer{}, []byte("zombiekiller: killer is nil. ignoring received operation\n"), &targetMock{}, "gopher", nil, nil},
+		"nil target":           {1, 1, &bytes.Buffer{}, []byte("zombiekiller: target is nil. ignoring received operation\n"), nil, "gopher", &zombieKillerMock{}, nil},
+		"basic kill operation": {1, 0, &bytes.Buffer{}, []byte("zombiekiller: zombie data was found and killed\n"), &targetMock{}, "gopher", &zombieKillerMock{}, nil},
+		"max retries":          {1, 5, &bytes.Buffer{}, []byte("zombiekiller: maximum retries reached. could not delete zombie data\n"), &targetMock{}, "gopher", &zombieKillerMock{}, ErrInternal},
 	}
 
 	for key, testcase := range cases {
@@ -50,24 +47,26 @@ func TestListenForKillOperations(t *testing.T) {
 			done := make(chan any)
 			opsChan := make(chan KillOperation, testcase.sendCount)
 
-			if tgt != nil {
-				tgt.On("String").Return(testcase.tgtString)
+			if testcase.tgt != nil {
+				testcase.tgt.(*targetMock).On("String").Return(testcase.tgtString)
 			}
-			if zk != nil {
-				zk.On("KillZombie", tgt).Return(testcase.zkErr)
+			if testcase.zk != nil {
+				testcase.zk.(*zombieKillerMock).On("KillZombie", testcase.tgt).Return(testcase.zkErr)
 			}
 
 			for range testcase.sendCount {
 				opsChan <- KillOperation{testcase.zk, testcase.tgt}
 			}
 
-			go ListenForKillOperations(done, opsChan, uint8(testcase.retryCount), testcase.rw)
+			var rw bytes.Buffer
+			go ListenForKillOperations(done, opsChan, uint8(testcase.retryCount), &rw)
 
 			time.Sleep(1 * time.Second)
 			close(done)
+
 			b := make([]byte, len(testcase.outMsg))
-			testcase.rw.Read(b)
-			require.Contains(string(testcase.outMsg), string(b))
+			rw.Read(b)
+			require.Equal(string(testcase.outMsg), string(b))
 		})
 	}
 }
