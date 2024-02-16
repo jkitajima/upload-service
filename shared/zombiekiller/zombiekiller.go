@@ -3,7 +3,7 @@ package zombiekiller
 import (
 	"errors"
 	"fmt"
-	"log"
+	"io"
 )
 
 type ZombieKiller interface {
@@ -15,31 +15,26 @@ type KillOperation struct {
 	Target fmt.Stringer
 }
 
-func ListenForKillOperations(doneChan <-chan any, ops <-chan KillOperation) {
-	log.Println("Zombie Killer is active and listening for incoming operations.")
-
+func ListenForKillOperations(doneChan <-chan any, ops <-chan KillOperation, retryCount uint8, out io.Writer) {
 	for {
 		select {
 		case <-doneChan:
-			log.Println("zombie killer received a signal to stop listening for incoming operations")
 			return
 		case op := <-ops:
 			var retry bool
-			var count uint
+			var count uint8
 
 			if op.Killer == nil || op.Target == nil {
-				log.Println("zombie killer: received an empty killer or target")
+				out.Write([]byte("zombiekiller: either killer or target is nil. ignoring received operation\n"))
 				goto End
 			}
 
-			for ; count <= 4; count++ {
+			for ; count < retryCount; count++ {
 				if retry {
-					log.Printf("zombie killer: retrying operation (count %d)\n", count)
+					out.Write([]byte(fmt.Sprintf("zombiekiller: retrying kill operation (retry count: %d)\n", count)))
 				}
 
 				if err := op.Killer.KillZombie(op.Target); err != nil {
-					log.Println(err)
-
 					switch err {
 					case ErrInternal:
 						retry = true
@@ -49,17 +44,18 @@ func ListenForKillOperations(doneChan <-chan any, ops <-chan KillOperation) {
 				}
 			}
 
-			if count >= 4 {
+			if count > retryCount {
+				out.Write([]byte("zombiekiller: maximum retry count passed. aborting retries\n"))
 				return
 			}
 
-			log.Println("zombie killer: zombie data was found and killed")
+			out.Write([]byte("zombiekiller: zombie data was found and killed\n"))
 		End:
 		}
 	}
 }
 
 var (
-	ErrInternal = errors.New("zombie killer: killer detected a target but failed to kill zombie data")
-	ErrNotFound = errors.New("zombie killer: target was not found")
+	ErrInternal = errors.New("zombiekiller: killer detected a target but failed to kill zombie data")
+	ErrNotFound = errors.New("zombiekiller: target was not found")
 )

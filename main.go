@@ -64,10 +64,14 @@ func run(
 
 	// init zombie killer (servers dependency)
 	doneChan := make(chan any)
-	defer close(doneChan)
+	defer func() {
+		close(doneChan)
+		log.Println("Zombie killer received a signal to stop listening for incoming operations.")
+	}()
 	const thrashBuffer = 1 << 10 * 1 // 1024 * (servers count)
 	thrashChan := make(chan zombiekiller.KillOperation, thrashBuffer)
-	go zombiekiller.ListenForKillOperations(doneChan, thrashChan)
+	log.Println("Zombie Killer is active and listening for incoming operations.")
+	go zombiekiller.ListenForKillOperations(doneChan, thrashChan, 5, os.Stdout)
 
 	// init azure blob storage (servers dependency)
 	blobstg, err := blob.NewAzureBlobStorage()
