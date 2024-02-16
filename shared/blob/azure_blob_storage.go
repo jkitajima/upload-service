@@ -2,10 +2,12 @@ package blob
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"gocloud.dev/blob"
@@ -13,9 +15,9 @@ import (
 )
 
 type azure struct {
-	local  bool
-	scheme string
-	domain string
+	localport uint16
+	scheme    string
+	domain    string
 }
 
 func NewAzureBlobStorage() (Storager, error) {
@@ -33,10 +35,20 @@ func NewAzureBlobStorage() (Storager, error) {
 	}
 
 	if env == "dev" || env == "test" {
+		port := os.Getenv("AZURITE_PORT")
+		if port == "" {
+			return nil, ErrMissingAzuritePort
+		}
+
+		portnum, err := strconv.Atoi(port)
+		if err != nil {
+			return nil, ErrInvalidAzuritePort
+		}
+
 		return &azure{
-			local:  true,
-			scheme: "azblob://",
-			domain: fmt.Sprintf("http://127.0.0.1:10000/%s/", domain),
+			localport: uint16(portnum),
+			scheme:    "azblob://",
+			domain:    fmt.Sprintf("http://127.0.0.1:%d/%s/", portnum, domain),
 		}, nil
 	}
 
@@ -69,8 +81,8 @@ func (az *azure) Upload(ctx context.Context, bucket, key string, r io.Reader, op
 	}
 
 	url := az.scheme + bucket
-	if az.local {
-		url += "?protocol=http&domain=localhost:10000"
+	if az.localport != 0 {
+		url += fmt.Sprintf("?protocol=http&domain=127.0.0.1:%d", az.localport)
 	}
 
 	buck, err := blob.OpenBucket(ctx, url)
@@ -107,8 +119,8 @@ func (az *azure) Delete(ctx context.Context, bucket, item string) error {
 	}
 
 	url := az.scheme + bucket
-	if az.local {
-		url += "?protocol=http&domain=localhost:10000"
+	if az.localport != 0 {
+		url += fmt.Sprintf("?protocol=http&domain=127.0.0.1:%d", az.localport)
 	}
 
 	buck, err := blob.OpenBucket(ctx, url)
@@ -150,8 +162,8 @@ func (az *azure) KillZombie(location fmt.Stringer) error {
 	}
 
 	url := az.scheme + bucket
-	if az.local {
-		url += "?protocol=http&domain=localhost:10000"
+	if az.localport != 0 {
+		url += fmt.Sprintf("?protocol=http&domain=127.0.0.1:%d", az.localport)
 	}
 
 	buck, err := blob.OpenBucket(context.TODO(), url)
@@ -176,3 +188,10 @@ func (az *azure) KillZombie(location fmt.Stringer) error {
 
 	return nil
 }
+
+var (
+	ErrAccountEnvVar      = errors.New(`blob: environment variable "AZURE_STORAGE_ACCOUNT" is either empty or not set`)
+	ErrKeyEnvVar          = errors.New(`blob: environment variable "AZURE_STORAGE_KEY" is either empty or not set`)
+	ErrMissingAzuritePort = errors.New("blob: azurite port number configuration is missing")
+	ErrInvalidAzuritePort = errors.New("blob: invalid azurite emulator port number")
+)
