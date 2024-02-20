@@ -27,14 +27,21 @@ func (c *Composer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (c *Composer) Compose(servers ...Server) error {
 	if len(c.servers) > 0 {
-		return errors.New("composer is already filled with servers")
+		return errors.New("composer: composer is already filled with servers")
 	}
 
-	// TODO!
-	// error handling needed if s does not have prefix/mux
-	// these methods should always return valid results
 	for _, s := range servers {
-		c.mux.Mount(s.Prefix(), s.Mux())
+		prefix := s.Prefix()
+		if prefix == "" {
+			return errors.New("composer: server prefix is empty")
+		}
+
+		mux := s.Mux()
+		if mux == nil {
+			return errors.New("composer: server mux is nil")
+		}
+
+		c.mux.Mount(prefix, mux)
 	}
 
 	return nil
