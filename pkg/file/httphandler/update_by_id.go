@@ -37,7 +37,8 @@ func (s *fileServer) handleFileUpdate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
 
-		if err := encoding.Decode(w, r, &req); err != nil {
+		req, err := encoding.Decode[request](r)
+		if err != nil {
 			encoding.ErrorRespond(w, r, http.StatusBadRequest, err)
 			return
 		}
