@@ -112,7 +112,7 @@ func (s *fileServer) handleFileCreate() http.HandlerFunc {
 			UploadedAt:      meta.UploadedAt,
 		}
 
-		dataresp := DataResponse{&resp}
+		dataresp := encoding.DataResponse{Data: &resp}
 		if err := encoding.Respond(w, r, &dataresp, http.StatusCreated); err != nil {
 			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 			return

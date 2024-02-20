@@ -85,7 +85,7 @@ func (s *fileServer) handleFileUpdate() http.HandlerFunc {
 			UploadedAt:      meta.UploadedAt,
 		}
 
-		dataresp := DataResponse{&resp}
+		dataresp := encoding.DataResponse{Data: &resp}
 		if err := encoding.Respond(w, r, &dataresp, http.StatusOK); err != nil {
 			encoding.ErrorRespond(w, r, http.StatusInternalServerError, file.ErrInternal)
 			return
