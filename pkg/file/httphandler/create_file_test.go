@@ -44,7 +44,7 @@ func TestHandleFileCreate(t *testing.T) {
 		t.Skipf("file: httphandler: test_handle_file_create: failed to create a blob storage for testing (err = %q)\n", err)
 	}
 
-	s := NewServer(coll, blobstg, nil)
+	s := NewServer(nil, coll, blobstg, nil)
 	ts := httptest.NewServer(s)
 	t.Cleanup(func() { ts.Close() })
 	baseURL := ts.URL

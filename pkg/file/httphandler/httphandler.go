@@ -8,6 +8,7 @@ import (
 	"upload/shared/zombiekiller"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-playground/validator/v10"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -15,6 +16,7 @@ import (
 type fileServer struct {
 	mux       *chi.Mux
 	prefix    string
+	auth      *jwtauth.JWTAuth
 	db        *repo.FileCollection
 	blobstg   blob.Storager
 	thrash    chan<- zombiekiller.KillOperation
@@ -33,10 +35,11 @@ func (s *fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func NewServer(db *mongo.Collection, blobstg blob.Storager, thrashChan chan<- zombiekiller.KillOperation) *fileServer {
+func NewServer(auth *jwtauth.JWTAuth, db *mongo.Collection, blobstg blob.Storager, thrashChan chan<- zombiekiller.KillOperation) *fileServer {
 	s := &fileServer{
 		prefix:    "/files",
 		mux:       chi.NewRouter(),
+		auth:      auth,
 		db:        repo.NewRepo(db),
 		blobstg:   blobstg,
 		thrash:    thrashChan,

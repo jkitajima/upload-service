@@ -15,6 +15,7 @@ import (
 	"upload/shared/composer"
 	"upload/shared/zombiekiller"
 
+	"github.com/go-chi/jwtauth/v5"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -36,6 +37,12 @@ func run(
 ) error {
 	// load environment variables
 	if err := loadenv(args, getwd); err != nil {
+		return err
+	}
+
+	// setup auth
+	auth, err := auth(getenv)
+	if err != nil {
 		return err
 	}
 
@@ -86,7 +93,7 @@ func run(
 	}
 
 	srv := composer.NewComposer()
-	file := srvFile.NewServer(dbClient.Collection("files"), blobstg, thrashChan)
+	file := srvFile.NewServer(auth, dbClient.Collection("files"), blobstg, thrashChan)
 	if err := srv.Compose(file); err != nil {
 		return err
 	}
@@ -126,4 +133,18 @@ func loadenv(args []string, getwd func() (string, error)) error {
 	}
 
 	return nil
+}
+
+func auth(getenv func(string) string) (*jwtauth.JWTAuth, error) {
+	alg := getenv("JWT_ALG")
+	sign := getenv("JWT_SIGN")
+	switch {
+	case alg == "":
+		return nil, errors.New(`environment variable "JWT_ALG" is either empty or not set`)
+	case sign == "":
+		return nil, errors.New(`environment variable "JWT_SIGN" is either empty or not set`)
+	}
+
+	auth := jwtauth.New(alg, []byte(sign), nil)
+	return auth, nil
 }

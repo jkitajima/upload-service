@@ -33,7 +33,7 @@ func TestHandleFileFindByID(t *testing.T) {
 	coll.Drop(ctx)
 	t.Cleanup(func() { coll.Drop(ctx) })
 
-	srv := NewServer(coll, nil, nil)
+	srv := NewServer(nil, coll, nil, nil)
 	id, _ := uuid.Parse("6bd1edba-bfe6-4a18-b2f3-db1dc4043b32")
 	f := file.File{ID: id, UploaderID: "0", CompanyID: "1", Name: "photo.png", Extension: ".png", ContentType: "image/png", Size: 256, StorageLocation: "https://storage.blob.com/" + id.String(), Description: "some random photo", SubmittedAt: time.Now()}
 	srv.db.Insert(ctx, &f)
