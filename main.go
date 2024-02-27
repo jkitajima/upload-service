@@ -75,7 +75,7 @@ func run(
 		close(doneChan)
 		log.Println("Zombie killer received a signal to stop listening for incoming operations.")
 	}()
-	const thrashBuffer = 1 << 10 * 1 // 1024 * (servers count)
+	const thrashBuffer = 1 << 10 * 4
 	thrashChan := make(chan zombiekiller.KillOperation, thrashBuffer)
 	log.Println("Zombie Killer is active and listening for incoming operations.")
 	go zombiekiller.ListenForKillOperations(doneChan, thrashChan, 5, os.Stdout)
